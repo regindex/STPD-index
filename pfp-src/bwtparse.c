@@ -5,9 +5,12 @@
 #include <assert.h>
 #include <unistd.h>
 #include <stdbool.h>
-
 #include <gsacak.h>
 #include "utils.h" 
+
+
+// Input: file.parse, file.last, [file.sai]
+// Output: file.ilist, file.bwlast, [file.bwsai] 
 
 // Compute the SA of a parsing and its associated BWT. 
 // Remap the chars in the .last file according to the
@@ -16,21 +19,22 @@
 // If the -s option is used, also remap the sa values in the .sai 
 // file (that uses IBYTES bytes per entry) producing the .bwsai file
 
-// The remapping is done as follows, let T[0] T[1] ... T[n-1] T[n] denote
-// the input parse where T[n]=0 is an extra EOS symbol added here   
-// For j=0,...,n, if BWT[j] = T[i] then:
-//   bwisa[j]  is the ending position+1 of T[i] in the original text 
-//   bwlast[j] is the char immediately before T[i] in the original text,
-//             ie the char in position w from the end of T[i-1]
-// Since T[n]=0, and T[0] = $abc... is the only phrase starting with $, 
-// it is T[n]<T[0]<T[i] and BWT[0]=T[n-1], BWT[1]=T[n]=0. We have 
-//   bwisa[0]  = ending position + 1 of T[n-1], 
-//   bwlast[0] = char in position w from the end of T[n-2]
-//   bwisa[1] and bwlast[1] are dummy values since T[n] is not a real phrase
-// For some j it is BWT[j]=T[0], for that j we set
-//   bwisa[j] = ending position + 1 of T[0] as expected
-//   bwlast[j] = char in position w from the end in T[n-1] (it should formally be
-//               T[n] but again that is a dummy symbol and we skip it)
+// The remapping is done as follows, let P[0] P[1] ... P[n-1] P[n] denote
+// the input parse where P[n]=0 is an extra EOS symbol added here 
+// For j=0,...,n, if BWT[j] = P[i] then:
+//   bwisa[j]  is the ending position+1 of P[i] in the original text 
+//   bwlast[j] is the char immediately before P[i] in the original text T,
+//             ie the char in position w+1 from the end of P[i-1]
+// Since P[n]=0, and P[0] = $abc... is the only phrase starting with $, 
+// it is P[n]<P[0]<P[i] and BWT[0]=P[n-1], BWT[1]=P[n]=0. We have 
+//   bwisa[0]  = ending position + 1 of P[n-1] (length of the original T)  
+//   bwlast[0] = char in position w+1 from the end of P[n-2], ie the one preceeding P[n-1]
+//   bwisa[1] and bwlast[1] are dummy values since P[n] is not a real phrase
+//      (ie P[n] is not in the dictionary so we don't scan the BWT for it)
+// For some j it is BWT[j]=P[0], for that j we set
+//   bwisa[j] = ending position + 1 of P[0] as expected
+//   bwlast[j] = char in position w+1 from the end in P[n-1], ie the last char
+//               of the original T, ie P[0] is used as the EOF of T
 
 // From the BWT we compute and output the .ilist file giving 
 // for each parsing symbol (considered in alphabetical order)
@@ -41,6 +45,7 @@
 // together with the .occ file giving for each symbol its number of 
 // occurrences in the BWT. 
 // Once the list is computed the BWT is no longer useful and is discarded
+// (note that ilist coincides with the rank_next array)
 
 // The parsing symbols are assumed to be 32 bit uints
 // Currently, the parsing is assumed to be of length at most 2^32-1
@@ -69,7 +74,7 @@ typedef struct {
 
 // read the parse file, add a 0 EOS symbol and return a pointer 
 // to a new allocate uint32_t array containing it. Store size in *tsize
-// note *tsize is the number of element in the parsing, but we add a 0
+// note *tsize is the number of elements in the parsing, but we add a 0
 // symbol at the end so the returned array has *tsize+1 elements 
 static uint32_t *read_parse(char *basename, long *tsize) 
 {  
@@ -125,7 +130,8 @@ static void print_help(char *name)
   puts("Permute the file basename.last according to the same permutation");
   puts("  Options:");
   puts("\t-h  \tshow help and exit");
-  puts("\t-s  \tpermute also sa info");
+  puts("\t-s  \tpermute also basename."EXTSAI " file");
+  puts("\t-t  \tnumber of segments of ." EXTLST " and ." EXTSAI " files");
   exit(1);
 }
 
@@ -137,7 +143,7 @@ static void parseArgs(int argc, char** argv, Args *arg ) {
   puts("==== Command line:");
   for(int i=0;i<argc;i++)
     printf(" %s",argv[i]);
-  puts("\n");
+  puts("");
 
   arg->SAinfo = false;
   arg->th = 0;
@@ -192,7 +198,7 @@ static uint8_t *load_sa_info(Args *arg, long n)
 {  
   // maybe sa info was not required 
   if(arg->SAinfo==false) return NULL;
-  // open .sa_info file for reading and .bwlast for writing
+  // open .sai file for reading and .bwlast for writing
   mFile *fin = mopen_aux_file(arg->basename,EXTSAI,arg->th);
   // allocate and load the sa info array
   uint8_t *sai = malloc(n*IBYTES);

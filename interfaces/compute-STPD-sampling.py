@@ -74,9 +74,9 @@ def main():
     print("Elapsed time: {0:.4f}".format(time.time()-start))
 
     # ---------- compute the BWT of the parse
-    command = "{exe} {file}".format(
+    command = "{exe} {file} -t {th}".format(
             exe = os.path.join(args.bigbwt_dir,bwtparse_exe),
-            file=args.input)
+            file=args.input, th=args.threads)
     command += " -s"
     print("==== Parse's BWT computation. Command:", command)
     if(execute_command(command,logfile,logfile_name)!=True):
@@ -86,7 +86,7 @@ def main():
     # ---------- compute the BWT and SA of the text
     command = "{exe} {file} -w {wsize} -t {th}".format(
             exe = os.path.join(args.bigbwt_dir,pfpbwt_exe),
-            wsize=args.wsize, th=args.threads-1, file=args.input)
+            wsize=args.wsize, th=args.threads, file=args.input)
     command += " -S" # computing the full suffix array
     print("==== Text's BWT and SA computation. Command:", command)
     if(execute_command(command,logfile,logfile_name)!=True):

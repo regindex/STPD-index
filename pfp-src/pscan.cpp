@@ -332,9 +332,13 @@ void remapParse(Args &arg, MTmaps &mtmaps)
   mFile *moldp = mopen_aux_file(arg.inputFileName.c_str(), EXTPARS0, arg.th);
   FILE *newp = open_aux_file(arg.inputFileName.c_str(), EXTPARSE, "wb");
 
+  mFile *moldl = mopen_aux_file(arg.inputFileName.c_str(), EXTLST, arg.th);
+  FILE *newl = open_aux_file(arg.inputFileName.c_str(), EXTLST, "wb");
+
   // recompute occ as an extra check 
   vector<occ_int_t> occ(mtmaps.size()+1,0); // ranks are zero based 
   uint64_t hash;
+  char last;
   while(true) {
     size_t s = mfread(&hash,sizeof(hash),1,moldp);
     if(s==0) break;
@@ -343,9 +347,17 @@ void remapParse(Args &arg, MTmaps &mtmaps)
     occ[rank]++;
     s = fwrite(&rank,sizeof(rank),1,newp);
     if(s!=1) die("Error writing to new parse file");
+
+    s = mfread(&last,sizeof(char),1,moldl);
+    if(s==0) break;
+    if(s!=1) die("Unexpected last EOF");
+    s = fwrite(&last,sizeof(char),1,newl);
+    if(s!=1) die("Error writing to new last file");
   }
   if(fclose(newp)!=0) die("Error closing new parse file");
   if(mfclose(moldp)!=0) die("Error closing old parse segment");
+  if(fclose(newl)!=0) die("Error closing new last file");
+  if(mfclose(moldl)!=0) die("Error closing old last files");
   // check old and recomputed occ coincide
   for(auto &m : mtmaps.maps) 
     for(auto& x : m)
