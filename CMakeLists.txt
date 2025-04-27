@@ -41,15 +41,15 @@ else ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   message(FATAL_ERROR "Only the compiler gcc and clang are supported")
 endif()
 
-# Configure thirdparty
+# Configure external resources
 # ------------------------------------------------------------------------------
 set(CMAKE_INSTALL_INCLUDEDIR "include")
-add_subdirectory(thirdparty)
+add_subdirectory(external)
 
-#add_subdirectory(include)
-#add_subdirectory(suff-set-src)
-#add_subdirectory(sA-index-src)
-add_subdirectory(pfp-src)
+# Configure internal resources
+# ------------------------------------------------------------------------------
+add_subdirectory(include)
+add_subdirectory(sources)
 
 # Set script containing the C++ binary interfaces
 # ------------------------------------------------------------------------------

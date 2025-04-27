@@ -1,0 +1,14 @@
+add_subdirectory(common)
+target_include_directories(common PUBLIC common)
+
+add_subdirectory(bitvectors)
+target_include_directories(bitvectors PUBLIC bitvectors)
+
+add_subdirectory(phi_functions)
+target_include_directories(phi_functions PUBLIC phi_functions)
+
+add_subdirectory(stpd_array)
+target_include_directories(stpd_array PUBLIC stpd_array)
+
+add_subdirectory(text_oracles)
+target_include_directories(text_oracles PUBLIC text_oracles)

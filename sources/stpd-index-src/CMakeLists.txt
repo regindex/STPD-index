@@ -1,0 +1,2 @@
+add_executable(build_store_stpd_index build_store_stpd_index.cpp)
+target_link_libraries(build_store_stpd_index bitvectors common phi_functions malloc_count sdsl divsufsort divsufsort64) 
