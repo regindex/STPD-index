@@ -70,6 +70,8 @@ public:
 		bwt.close();
 		sa.close();
 
+		std::cout << "LAst first vector size= " << last_first.size() << std::endl;
+
 		// sort end-of-run samples in ascending order
 		std::sort(last_first.begin(), last_first.end(), [](auto &left, auto &right) {
 		    return left.first < right.first;
@@ -79,6 +81,8 @@ public:
 		sdsl::sd_vector_builder builder(bwt_length,last_first.size());
 		for(auto& idx: last_first){ builder.set(idx.first); }
 		this->last = b_v(builder);
+
+		std::cout << "Last built!" << std::endl;
 
 		this->stpd = stpdA_; // set stpd array pointer
 		first = sdsl::int_vector<>(last_first.size(),0,bitsize(uint64_t(bwt_length)));

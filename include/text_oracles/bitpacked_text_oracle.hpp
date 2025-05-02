@@ -30,14 +30,14 @@ public:
             T[i] = dna_to_code_table[c];
         }
 
-        std::ofstream fout(input_file_path+".bitpacked", std::ios::binary);
-        store(fout);
-        fout.close();
+        //std::ofstream fout(input_file_path+".bitpacked", std::ios::binary);
+        //store(fout);
+        //fout.close();
     } 
 
     usafe_t get_text_size() const { return T.size(); }
 
-    usafe_t store(std::ostream& out) const
+    usafe_t serialize(std::ostream& out) const
     {
         //usafe_t w_bytes = (this->N * PACKED_INT_SIZE)/8;
         usafe_t w_bytes = T.serialize(out);

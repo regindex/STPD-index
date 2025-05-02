@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
             return -1;
         }
     }
-    
+    /*
     std::cout << "##############################################" << std::endl;
     std::cout << "##############################################" << std::endl;
 
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
                      stpd::bitpacked_text_oracle,stpd::r_index_phi_inv<>> index_;
     index_.build_colex_m(inputPath);
     index_.store(inputPath+"colex+");
-    
+    */
     std::cout << "##############################################" << std::endl;
     std::cout << "##############################################" << std::endl;
 

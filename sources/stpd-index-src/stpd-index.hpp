@@ -70,15 +70,16 @@ public:
 	{
 		std::ofstream out(index_filepath);
 
-		//usafe_t w_bytes = 0;
-		//w_bytes += O.size();
-		//w_bytes += S.store(out);
+		usafe_t O_bytes = O.serialize(out);
+		std::cout << "Storing random-access data structure, size = " << O_bytes << " bytes" << std::endl;
+		usafe_t S_bytes = S.serialize(out);
+		std::cout << "Storing STPD-array data structure, size = " << S_bytes << " bytes" << std::endl;
 		usafe_t phi_size = phi.serialize(out);
 		std::cout << "Storing phi data structure, size = " << phi_size << " bytes" << std::endl;
 		
 		out.close();
 
-		return phi_size;
+		return O_bytes + S_bytes + phi_size;
 	}
 	/*
 	void load(const std::string &oracle_filepath, 

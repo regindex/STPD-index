@@ -6,8 +6,8 @@
  *  stpd_array_binary_search: Baseline stpd-array index implementation
  */
 
-#ifndef stpd_array_binary_search_HPP_
-#define stpd_array_binary_search_HPP_
+#ifndef STPD_ARRAY_BINARY_SEARCH_HPP_
+#define STPD_ARRAY_BINARY_SEARCH_HPP_
 
 #include <cmath>
 #include <common.hpp>
@@ -64,13 +64,17 @@ public:
 			std::endl << "Text size = " << this->N <<
 			std::endl << "N/S = " << double(this->N)/S << std::endl;
 		}
+
+		//std::cout << "-->CAT test" << std::endl;
+		//std::string pattern = "CAT";
+		//binary_search_lower_bound(pattern,0,3);
 	}
 
 	usafe_t sA_size(){ return this->S; }
 
 	int_t get_len(){ return this->len; }
 
-	usafe_t store(std::ostream& out)
+	usafe_t serialize(std::ostream& out)
 	{
 		usafe_t w_bytes = 0;
 
@@ -97,58 +101,61 @@ public:
 	}
 
 	std::tuple<uint_t,uint_t,bool_t> 
-		locate_longest_prefix(std::string& pattern,uint_t pstart,uint_t pend) const
+		binary_search_lower_bound(std::string& pattern,uint_t pstart,uint_t pend) const
 	{
 		// initialize binary search parameters
-		uint_t low, mid, high, plen;
-		int_t lcp_low, lcp_high, lcp_mid;
+		uint_t low, mid, high, lcp, plen;
 		plen = pend - pstart;
+		//std::cout << "plen= " << plen << std::endl;
 		low  = this->alph[pattern[pend-1]];
 		high = this->alph[pattern[pend-1]+1];
 
+		std::cout << low << " - " << high << std::endl;
+
 		// stop if first pattern character doesn't occur in the text
 		if((high - low) > 0)
-			{ 
-				high--;
-				lcp_low = lcp_high = -1; 
-				mid = (low+high)/2;
-				if(plen == 1)
-					return std::make_tuple(this->stpd[mid],1,false);
+		{ 
+			if(plen == 1)
+			{
+				//std::cout << "return " << low << " - " << high-1 << std::endl;
+				//exit(1);
+				return std::make_tuple(this->stpd[low],1,false);
 			}
+			high--;
+			lcp = O->LCS(pattern,pend-1,stpd[high]); 
+			mid = (low+high)/2;
+		}
 		else
 			return std::make_tuple(-1,0,true);
 
-		while( high-low > 1 )
+		//std::cout << low << " - " << high << std::endl;
+
+		while( low < high )
 		{		
-			auto j = O->LCS_char(pattern,pend-1,this->Suff[mid]); 
+			auto j = O->LCS_char(pattern,pend-1,this->stpd[mid]); 
 	
-			if(j.first == plen)
-				return std::make_tuple(this->stpd[mid],plen,false); 		
- 
-			if(j.second > pattern[pend-j.first-1]){
+			//if(j.first == plen)
+			//	return std::make_tuple(this->stpd[mid],plen,false);    -- B AAAA , C AAAA
+
+			if((j.first != plen) and (j.second < pattern[pend-j.first-1]))    
+			{
+				low = mid+1;
+			}
+			else
+			{
 				high = mid;
-				lcp_high = j.first;
+				lcp = j.first;
 			}
-			else{
-				low = mid;
-				lcp_low = j.first;
-			}
+ 			
+ 			//if(lcp_low < j.first){ lcp_low = j.first; }
 			mid = (low+high)/2;
 		}
 
-		if(lcp_low  == -1){ lcp_low  = O->LCS_char(pattern,pend-1,stpd[low]).first; }
-		if(lcp_high == -1){ lcp_high = O->LCS_char(pattern,pend-1,stpd[high]).first;}
+		//if(lcp_low  == -1){ lcp_low  = O->LCS_char(pattern,pend-1,stpd[low]).first; }
 
-		if(lcp_low >= lcp_high){
-			mid = low;
-			lcp_mid = lcp_low;
-		}
-		else{
-			mid = high;
-			lcp_mid = lcp_high;
-		}
+		//std::cout << "ritorna: " << low << " - " << lcp << std::endl;
 
-		return std::make_tuple(this->stpd[mid],lcp_mid,(lcp_mid != plen));
+		return std::make_tuple(this->stpd[low],lcp,(lcp != plen));
 	}
 
 	const sdsl::int_vector<>& get_array() const { return stpd; }

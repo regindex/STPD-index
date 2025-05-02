@@ -195,6 +195,40 @@ void store_set_lex(const set<int>& sampling, const string output_file)
     output.close();
 }
 
+void output_Prefix_Array_BWT(const string output_file, const string output_file_BWT)
+{
+    // compute prefix array and inverse prefix array
+    if(PA.size() == 0)
+    {
+        int_vector<8> T_rev;
+        size_t n = T.size();
+        T_rev.resize( n );
+
+        assert( T[n-1] == '\0' );
+        T_rev[n-1] = '\0';
+        for( size_t i = 0; i < n-1; ++i ) {
+            T_rev[ n-2 - i ] = T[ i ];
+        }
+        
+        algorithm::calculate_sa<>( (const unsigned char*) T_rev.data(), n, PA );
+    }
+
+    ofstream output_pa(output_file,ofstream::binary);
+    ofstream output_bwt(output_file_BWT,ofstream::binary);
+
+    for(size_t i=0;i<PA.size();++i)
+    { 
+        uint64_t x = T.size() - PA[i] - 1;
+        char c = T[x];
+        //std::cout << x << " " << T[x] << std::endl;
+        output_pa.write((char*)&x,5);
+        output_bwt.write((char*)&c,1);
+    }
+
+    output_pa.close();
+    output_bwt.close();
+}
+
 void help()
 {
     cout << "stpd [options]" << endl <<
@@ -206,7 +240,8 @@ void help()
     "-c          Compute colex- sampling (DEFAULT)" << endl <<
     "-C          Compute colex+ sampling" << endl <<
     "-l          Compute lex- sampling" << endl <<
-    "-L          Compute lex+ sampling" << endl;
+    "-L          Compute lex+ sampling" << endl <<
+    "-P          Output the Prefix Array and the BWT of the reversed text" << endl;
     exit(0);
 }
 
@@ -216,9 +251,10 @@ int main( int argc, char **argv ) {
 
     string input_filename, output_file;
     bool colexM = false, colexP = false, lexM = false, lexP = false;
+    bool outPA_BWT = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:o:cClL")) != -1){
+    while ((opt = getopt(argc, argv, "hi:o:cClLP")) != -1){
         switch (opt){
             case 'h':
                 help();
@@ -240,6 +276,9 @@ int main( int argc, char **argv ) {
             break;
             case 'L':
                 lexP = true;
+            break;
+            case 'P':
+                outPA_BWT = true;
             break;
             default:
                 help();
@@ -324,34 +363,36 @@ int main( int argc, char **argv ) {
     if(colexM)
     {
         col_set_m = sampling( prefix_colex( T ) );
-        if(not colexP){ store_set_colex(col_set_m,output_file); }
+        if(not colexP){ store_set_colex(col_set_m,output_file+".colex_m"); }
     }
     if(colexP)
     { 
         col_set_p = sampling( prefix_colex_r( T ) );
-        if(not colexM){ store_set_colex(col_set_p,output_file); }
+        if(not colexM){ store_set_colex(col_set_p,output_file+".colex_p"); }
     }
     if(colexM and colexP)
     {
         col_set_m.insert( col_set_p.begin(), col_set_p.end() );
-        store_set_colex(col_set_m,output_file);
+        store_set_colex(col_set_m,output_file+".colex_pm");
     }
 
     if(lexM)
     { 
         lex_set_m = sampling( suffix_lex( T, ISA ) );
-        if(not lexP){ store_set_lex(lex_set_m,output_file); }
+        if(not lexP){ store_set_lex(lex_set_m,output_file+".lex_m"); }
     }
     if(lexP)
     { 
         lex_set_p = sampling( suffix_lex_r( T, ISA ) );
-        if(not lexM){ store_set_lex(lex_set_p,output_file); }
+        if(not lexM){ store_set_lex(lex_set_p,output_file+".lex_p"); }
     }
     if(lexM and lexP)
     {
         lex_set_m.insert( lex_set_p.begin(), lex_set_p.end() );
-        store_set_lex(lex_set_m,output_file);
+        store_set_lex(lex_set_m,output_file+".lex_pm");
     }
+
+    if(outPA_BWT){ output_Prefix_Array_BWT(output_file+".pa",output_file+".bwt"); }
 
     return 0;
 }
