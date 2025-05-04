@@ -22,11 +22,13 @@ public:
 
 	stpd_array_binary_search(){ }
 
-	void build(const std::string stpdArray, text_oracle* O_, bool verbose = true)
+	void build(const std::string stpdArray, text_oracle* O_, 
+		             bool_t large_, bool_t verbose = true)
 	{
 		{
+			this->large = large_;
 			this->O = O_;
-			this->N = O_->get_text_size();
+			this->N = O_->text_length();
 		}
 	   	std::ifstream file_stpd(stpdArray, std::ios::binary);
 	   	file_stpd.seekg(0, std::ios::end);
@@ -64,15 +66,20 @@ public:
 			std::endl << "Text size = " << this->N <<
 			std::endl << "N/S = " << double(this->N)/S << std::endl;
 		}
-
-		//std::cout << "-->CAT test" << std::endl;
-		//std::string pattern = "CAT";
-		//binary_search_lower_bound(pattern,0,3);
+		/*
+		std::cout << "-->AAA test" << std::endl;
+		std::string pattern = "AAA";
+		binary_search_lower_bound(pattern,0,3);
+		binary_search_upper_bound(pattern,0,3);
+		exit(1);
+		*/
 	}
 
-	usafe_t sA_size(){ return this->S; }
+	usafe_t sA_size() const { return this->S; }
 
-	int_t get_len(){ return this->len; }
+	int_t get_len() const { return this->len; }
+
+	bool_t is_index_large() const { return this->large; }
 
 	usafe_t serialize(std::ostream& out)
 	{
@@ -81,7 +88,8 @@ public:
 		out.write((char*)&N, sizeof(N));
 		out.write((char*)&S, sizeof(S));
 		out.write((char*)&len, sizeof(len));
-		w_bytes += sizeof(N) + sizeof(S) + sizeof(len);
+		out.write((char*)&large, sizeof(large));
+		w_bytes += sizeof(N) + sizeof(S) + sizeof(len) + sizeof(large);
 
 		w_bytes += stpd.serialize(out);
 		w_bytes += alph.serialize(out);
@@ -91,17 +99,19 @@ public:
 
 	void load(std::istream& in, text_oracle* O_)
 	{
+		std::cout << "start loading" << std::endl;
 		O = O_;
 		in.read((char*)&N, sizeof(N));
 		in.read((char*)&S, sizeof(S));
 		in.read((char*)&len, sizeof(len));
+		in.read((char*)&large, sizeof(large));
 
 		stpd.load(in);
 		alph.load(in);
 	}
 
 	std::tuple<uint_t,uint_t,bool_t> 
-		binary_search_lower_bound(std::string& pattern,uint_t pstart,uint_t pend) const
+		binary_search_lower_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
 	{
 		// initialize binary search parameters
 		uint_t low, mid, high, lcp, plen;
@@ -110,7 +120,7 @@ public:
 		low  = this->alph[pattern[pend-1]];
 		high = this->alph[pattern[pend-1]+1];
 
-		std::cout << low << " - " << high << std::endl;
+		//std::cout << low << " - " << high << std::endl;
 
 		// stop if first pattern character doesn't occur in the text
 		if((high - low) > 0)
@@ -158,6 +168,63 @@ public:
 		return std::make_tuple(this->stpd[low],lcp,(lcp != plen));
 	}
 
+	uint_t 
+		binary_search_upper_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
+	{
+		// initialize binary search parameters
+		uint_t low, mid, high, plen;
+		plen = pend - pstart;
+		//std::cout << "plen= " << plen << std::endl;
+		low  = this->alph[pattern[pend-1]];
+		high = this->alph[pattern[pend-1]+1];
+
+		//std::cout << low << " - " << high << std::endl;
+
+		// stop if first pattern character doesn't occur in the text
+		if((high - low) > 0)
+		{ 
+			if(plen == 1)
+			{
+				//std::cout << "return " << low << " - " << high << std::endl;
+				//exit(1);
+				return this->stpd[high-1];
+			}
+			//high--;
+			mid = (low+high)/2;
+		}
+		else
+			return -1;
+
+
+		while( low < high )
+		{		
+			//std::cout << low << " - " << high << " : " << mid << std::endl;
+			auto j = O->LCS_char(pattern,pend-1,this->stpd[mid]); 
+	
+			//if(j.first == plen)
+			//	return std::make_tuple(this->stpd[mid],plen,false);    -- B AAAA , C AAAA
+			
+			if((j.first != plen) and (j.second > pattern[pend-j.first-1])) 
+			{
+				high = mid;
+			}
+			else
+			{
+				low = mid+1;
+			}
+			 			
+ 			//if(lcp_low < j.first){ lcp_low = j.first; }
+			mid = (low+high)/2;
+			//std::cout << low << " - " << high << " : " << mid << std::endl;
+		}
+
+		//if(lcp_low  == -1){ lcp_low  = O->LCS_char(pattern,pend-1,stpd[low]).first; }
+
+		//std::cout << "ritorna: " << high  << std::endl;
+
+		return this->stpd[high-1];
+	}
+
 	const sdsl::int_vector<>& get_array() const { return stpd; }
 	const sdsl::int_vector<>* get_array_point() const { return &stpd; }
 	usafe_t get_PA_size() const { return N; }
@@ -172,6 +239,8 @@ private:
 	uint_t S;
 	usafe_t N;
 	int_t len;
+
+	bool_t large;
 };
 
 }

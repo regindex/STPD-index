@@ -35,7 +35,7 @@ public:
         //fout.close();
     } 
 
-    usafe_t get_text_size() const { return T.size(); }
+    usafe_t total_length() const { return T.size(); }
 
     usafe_t serialize(std::ostream& out) const
     {
@@ -65,7 +65,7 @@ public:
         return code_to_dna_table[this->T[i]]; 
     }
     
-    usafe_t LCP(std::string& pattern, usafe_t p, usafe_t t)
+    usafe_t LCP(const std::string& pattern, usafe_t p, usafe_t t) const
     {
         usafe_t matched_chars = 0;
         usafe_t available_chars = std::min((pattern.size()-p),(this->T.size()-t));
@@ -82,7 +82,7 @@ public:
         return matched_chars;
     }
 
-    usafe_t LCS(std::string& pattern, size_t p, size_t t)
+    usafe_t LCS(const std::string& pattern, size_t p, size_t t) const
     {
         usafe_t matched_chars = 0;
         usafe_t available_chars = std::min(p+1,t+1);
@@ -99,7 +99,7 @@ public:
         return matched_chars;
     }
 
-    std::pair<usafe_t,char_t> LCS_char(std::string& pattern, usafe_t p, usafe_t t)
+    std::pair<usafe_t,char_t> LCS_char(const std::string& pattern, usafe_t p, usafe_t t) const
     {
         usafe_t matched_chars = 0;
         usafe_t available_chars = std::min(p+1,t+1);

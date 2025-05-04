@@ -79,7 +79,7 @@ public:
 		sa.close();
 	}
 
-	uint_t phi_safe(const uint_t idx) const
+	int_t phi_safe(const uint_t idx) const
 	{
 		if(idx != L)
 		{
@@ -88,6 +88,13 @@ public:
 			return first[res.second-1] - (res.first - idx);
 		}
 		else{ return -1; }
+	}
+
+	int_t phi_unsafe(const uint_t idx) const
+	{
+		auto res = last.successor_rank(idx);
+
+		return first[res.second-1] - (res.first - idx);
 	}
 
 	void test_phi(uint_t idx)

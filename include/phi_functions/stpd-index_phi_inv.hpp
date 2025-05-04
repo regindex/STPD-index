@@ -182,6 +182,23 @@ public:
 		else{ return -1; }
 	}
 
+	uint_t phi_unsafe(const uint_t idx) const
+	{
+		auto res = last.successor_rank(idx);
+		//std::cout << res.first << " " << res.second << std::endl;
+
+		if(f_bv[res.second-1])
+		{
+			usafe_t no_ones = rank1_(res.second-1) + 1;
+			return ((*stpd)[last_to_first[no_ones-1]]-1) - (res.first - idx);
+		}
+		else
+		{
+			usafe_t no_zeroes = res.second - rank1_(res.second);
+			return first[no_zeroes-1] - (res.first - idx);
+		}
+	}
+
 	void test_phi(uint_t idx)
 	{
 		//std::cout << "ENTRA NEL TEST" << std::endl;

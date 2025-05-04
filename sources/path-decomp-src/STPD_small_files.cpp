@@ -392,7 +392,7 @@ int main( int argc, char **argv ) {
         store_set_lex(lex_set_m,output_file+".lex_pm");
     }
 
-    if(outPA_BWT){ output_Prefix_Array_BWT(output_file+".pa",output_file+".bwt"); }
+    if(outPA_BWT){ output_Prefix_Array_BWT(output_file+".pa",output_file+".rbwt"); }
 
     return 0;
 }
