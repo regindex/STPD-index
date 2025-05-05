@@ -144,7 +144,6 @@ void store_set_colex(const set<int>& sampling, const string output_file)
     for(size_t i=1;i<stpd_array.size();++i)
     { 
         uint64_t x = stpd_array[i].first;
-        //std::cout << x << std::endl;
         output.write((char*)&x,5);
     }
 
@@ -188,7 +187,6 @@ void store_set_lex(const set<int>& sampling, const string output_file)
     for(size_t i=1;i<stpd_array.size();++i)
     { 
         uint64_t x = stpd_array[i].first;
-        //std::cout << x << std::endl;
         output.write((char*)&x,5);
     }
 
@@ -220,7 +218,6 @@ void output_Prefix_Array_BWT(const string output_file, const string output_file_
     { 
         uint64_t x = T.size() - PA[i] - 1;
         char c = T[x];
-        //std::cout << x << " " << T[x] << std::endl;
         output_pa.write((char*)&x,5);
         output_bwt.write((char*)&c,1);
     }
@@ -232,15 +229,15 @@ void output_Prefix_Array_BWT(const string output_file, const string output_file_
 void help()
 {
     cout << "stpd [options]" << endl <<
-    "Input: One text. Output: ST path decomposition of the text." << endl <<
+    "Input: One text. Output: ST path decomposition of the text (stored using 5 bytes per element)." << endl <<
     "Options:" << endl <<
     "-h          Print this help" << endl <<
     "-i <arg>    Input Text (REQUIRED)" << endl <<
     "-o <arg>    Output file name (REQUIRED)" << endl <<
-    "-c          Compute colex- sampling (DEFAULT)" << endl <<
-    "-C          Compute colex+ sampling" << endl <<
-    "-l          Compute lex- sampling" << endl <<
-    "-L          Compute lex+ sampling" << endl <<
+    "-c          Compute ST colex- sampling (DEFAULT)" << endl <<
+    "-C          Compute ST colex+- sampling" << endl <<
+    "-l          Compute ST lex- sampling" << endl <<
+    "-L          Compute ST lex+- sampling" << endl <<
     "-P          Output the Prefix Array and the BWT of the reversed text" << endl;
     exit(0);
 }
@@ -355,44 +352,59 @@ int main( int argc, char **argv ) {
                 STLeaf.push_back(new_v);
             }
         }
+        // free LCP array
+        LCP.resize(0);
     }
 
-    set<int> col_set_m, col_set_p;
-    set<int> lex_set_m, lex_set_p;
+    { // ST colex sampling
+        if(colexM or colexP)
+        {
+            set<int> col_set_m, col_set_p;
 
-    if(colexM)
-    {
-        col_set_m = sampling( prefix_colex( T ) );
-        if(not colexP){ store_set_colex(col_set_m,output_file+".colex_m"); }
-    }
-    if(colexP)
-    { 
-        col_set_p = sampling( prefix_colex_r( T ) );
-        if(not colexM){ store_set_colex(col_set_p,output_file+".colex_p"); }
-    }
-    if(colexM and colexP)
-    {
-        col_set_m.insert( col_set_p.begin(), col_set_p.end() );
-        store_set_colex(col_set_m,output_file+".colex_pm");
-    }
+            col_set_m = sampling( prefix_colex( T ) );
+            if(colexP)
+            { 
+                col_set_p = sampling( prefix_colex_r( T ) );
+                col_set_m.insert( col_set_p.begin(), col_set_p.end() );
+            }
+            // free suffix tree
+            STLeaf.clear();
+            ST.clear();
+            // free rank vector
+            Rank.resize(0);
+            // free sa/isa vectors
+            SA.resize(0);
+            ISA.resize(0);
 
-    if(lexM)
-    { 
-        lex_set_m = sampling( suffix_lex( T, ISA ) );
-        if(not lexP){ store_set_lex(lex_set_m,output_file+".lex_m"); }
-    }
-    if(lexP)
-    { 
-        lex_set_p = sampling( suffix_lex_r( T, ISA ) );
-        if(not lexM){ store_set_lex(lex_set_p,output_file+".lex_p"); }
-    }
-    if(lexM and lexP)
-    {
-        lex_set_m.insert( lex_set_p.begin(), lex_set_p.end() );
-        store_set_lex(lex_set_m,output_file+".lex_pm");
+            store_set_colex(col_set_m,output_file);
+        }
     }
 
-    if(outPA_BWT){ output_Prefix_Array_BWT(output_file+".pa",output_file+".rbwt"); }
+    { // ST lex sampling
+        if(lexM or lexP)
+        {
+            set<int> lex_set_m, lex_set_p;
+
+            lex_set_m = sampling( suffix_lex( T, ISA ) );
+            if(lexP)
+            { 
+                lex_set_p = sampling( suffix_lex_r( T, ISA ) );
+                lex_set_m.insert( lex_set_p.begin(), lex_set_p.end() );
+            }
+            // free suffix tree
+            STLeaf.clear();
+            ST.clear();
+            // free rank vector
+            Rank.resize(0);
+            // free sa/isa vectors
+            SA.resize(0);
+            ISA.resize(0);
+
+            store_set_lex(lex_set_m,output_file);
+        }
+    }
+
+    if(outPA_BWT){ output_Prefix_Array_BWT(input_filename+".pa",input_filename+".rbwt"); }
 
     return 0;
 }

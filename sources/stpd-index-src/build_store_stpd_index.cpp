@@ -75,15 +75,5 @@ int main(int argc, char* argv[])
     }
     else{ std::cerr << "Not yet implemented..." << std::endl; exit(1); }
 
-    /*
-    std::cout << "##############################################" << std::endl;
-    std::cout << "##############################################" << std::endl;
-
-    stpd::stpd_index<stpd::stpd_array_binary_search<stpd::bitpacked_text_oracle>,
-                     stpd::bitpacked_text_oracle,stpd::stpd_index_phi_inv<>> index__;
-    index__.build_colex_m_v2(inputPath);
-    index__.store(inputPath+"colex+_v2");
-    */
-
     return 0;
 }

@@ -39,7 +39,6 @@ public:
 	// empty constructor
 	stpd_index(){}
 
-	// build suffixient index by indexing the supermaximal extensions
 	void build_colex_m(const std::string &text_filepath)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
@@ -54,7 +53,7 @@ public:
 	  	std::cout << "Done!" << std::endl;
 	}
 
-	// build suffixient index by indexing the supermaximal extensions
+	/*
 	void build_colex_m_v2(const std::string &text_filepath)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
@@ -64,7 +63,7 @@ public:
 		S.build(text_filepath+".colex_m",&O); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
 	  	phi.build(text_filepath+".rbwt",text_filepath+".pa",S.get_array_point(),S.get_PA_size());
-	}
+	} */
 
 	// build suffixient index by indexing the supermaximal extensions
 	void build_colex_pm(const std::string &text_filepath)
@@ -133,7 +132,6 @@ public:
 			i = i + f + 1;
 			occ = occ + f;
 		}
-		//std::cout << "occ: " << occ << std::endl;
 
 		usafe_t high = 2, low = 0;
 		std::vector<usafe_t> res{usafe_t(occ)};
@@ -142,21 +140,13 @@ public:
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
-				occ = phi.phi_safe(occ);  // 0 1 2 3   
-				//std::cout << "next occ " << occ << std::endl; 
+				occ = phi.phi_safe(occ);  // 0 1 2 3    
 				if(occ == -1)
 				{
 					high -= phi_steps;
-
-					//std::cout << low << " - " << high-1 << std::endl;
 					binary_search(low,high,m,pattern,res);
 					res.resize(low);
-					/*
-					for(const auto& e:res)
-						std::cout << e << " ";
-					std::cout << std::endl;
-					exit(1);
-					*/
+
 					std::chrono::duration<double> duration = 
 							std::chrono::high_resolution_clock::now() - start;
 
@@ -165,11 +155,7 @@ public:
 
 				res.push_back(occ);
 			}
-			/*
-			std::cout << "pop: " << high << std::endl;
 
-			std::cout << "--> " << res[high-1] << std::endl;
-			*/
 			usafe_t f = O.LCS(pattern,m-1,res[high-1]);
 			if(f < m)
 				break;
@@ -178,18 +164,9 @@ public:
 			high *= 2;
 		}
 
-		//std::cout << low << " - " << high-1 << std::endl;  // 3 9 2 5
-
 		binary_search(low,high,m,pattern,res);
-		//std::cout << "<> " << low << std::endl;
 		res.resize(low);
-		/*
-		for(const auto& e:res)
-			std::cout << e << " ";
-		std::cout << std::endl;
 
-		exit(1);
-		*/
 		std::chrono::duration<double> duration = 
 				std::chrono::high_resolution_clock::now() - start;
 
@@ -211,8 +188,6 @@ public:
 		auto t2 = std::async(std::launch::async, [this, &pattern, &upper_occ]() {
 		    this->upper_sample(pattern, upper_occ);
 		});
-
-		// sinchronize threads
 		t1.get(); t2.get();
 		/*
 		this->lower_sample(pattern, lower_occ, mismatch_found);
@@ -253,7 +228,6 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				//std::cout << "line= " << line << std::endl;
 				if(this->S.is_index_large())
 					o = locate_pattern(line);
 				else
@@ -309,7 +283,6 @@ private:
 				high = mid;
 			}
  			
- 			//if(lcp_low < j.first){ lcp_low = j.first; }
 			mid = (low+high)/2;
 		}
 	}
