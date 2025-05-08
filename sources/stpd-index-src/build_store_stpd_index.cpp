@@ -12,7 +12,8 @@ void help(){
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input files base path. (REQUIRED)" << std::endl <<
-    "-v <arg>    Index variant: (small|large). (Def. small)" << std::endl <<
+    "-v <arg>    Index variant: (colex-|colex+-). (Def. colex-)" << std::endl <<
+    "-O          Enable index optimizations. (Def. False)" << std::endl <<
     "-o <arg>    Output index filename. (REQUIRED)" << std::endl;
     exit(0);
 } 
@@ -27,10 +28,10 @@ int main(int argc, char* argv[])
     }
 
     std::string inputPath, outputPath, indexVariant;
-    bool verbose = false;
+    bool verbose = false, optimizations = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:o:v:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:o:v:O")) != -1)
     {
         switch (opt){
             case 'h':
@@ -41,6 +42,9 @@ int main(int argc, char* argv[])
             break;
             case 'o':
                 outputPath = std::string(optarg);
+            break;
+            case 'O':
+                optimizations = true;
             break;
             case 'v':
                 indexVariant = std::string(optarg);
@@ -53,24 +57,37 @@ int main(int argc, char* argv[])
 
     if(inputPath == "" or outputPath == ""){ help(); }
     
-    if(indexVariant == "small")
+    if(indexVariant == "colex-" and not optimizations)
     {
         std::cout << "### Constructing the ST colex- index for " 
                   << inputPath << std::endl;
 
         stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.build_colex_m(inputPath);
+        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
+                            inputPath+".pa");
         index.store(outputPath);
     }
-    else if(indexVariant == "large")
+    else if(indexVariant == "colex+-" and not optimizations)
     {
         std::cout << "### Constructing the ST colex+- index for " 
                   << inputPath << std::endl;
 
         stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.build_colex_pm(inputPath);
+        index.build_colex_pm(inputPath,inputPath+".colex_pm",inputPath+".rbwt",
+                             inputPath+".pa");
+        index.store(outputPath);
+    }
+    else if(indexVariant == "colex-" and optimizations)
+    {
+        std::cout << "### Constructing the opt ST colex- index for " 
+                  << inputPath << std::endl;
+
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
+                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
+        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
+                            inputPath+".pa",inputPath+".lcs");
         index.store(outputPath);
     }
     else{ std::cerr << "Not yet implemented..." << std::endl; exit(1); }

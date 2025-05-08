@@ -69,9 +69,7 @@ public:
 	}
 
 	usafe_t sA_size() const { return this->S; }
-
 	int_t get_len() const { return this->len; }
-
 	bool_t is_index_large() const { return this->large; }
 
 	usafe_t serialize(std::ostream& out)
@@ -100,6 +98,31 @@ public:
 
 		stpd.load(in);
 		alph.load(in);
+	}
+
+	std::pair<usafe_t,int_t> locate_first_prefix(const std::string& pattern) const
+	{
+		usafe_t i = 1;
+		usafe_t low  = this->alph[pattern[i-1]];
+		usafe_t high = this->alph[pattern[i-1]+1];
+
+		if((high - low) > 0)
+		{ 
+			int_t occ = this->stpd[low];
+			//std::cout << "--> " << occ << " - " << low << std::endl;
+			if(i < pattern.size())
+			{
+				usafe_t f = O->LCP(pattern,i,occ+1);
+				//std::cout << "f: " << f << std::endl;
+				i = i + f + 1;
+				occ = occ + f;
+			}
+			else{ i++; }
+
+			return std::make_pair(i,occ);
+		}
+		else
+			return std::make_pair(i,-1);
 	}
 
 	std::tuple<uint_t,uint_t,bool_t> 

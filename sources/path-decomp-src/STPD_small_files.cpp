@@ -16,7 +16,9 @@ int_vector<32> SA;
 int_vector<32> PA;
 int_vector<32> Rank;
 int_vector<32> ISA;
+int_vector<32> IPA; 
 int_vector<32> LCP;
+int_vector<32> LCS;
 vector< pair<int,int> > ST;  // each node is a pair of parentID and depth
 vector< int > STLeaf;
 
@@ -125,7 +127,7 @@ set<int> sampling( const int_vector<32>& rank ) {
 void store_set_colex(const set<int>& sampling, const string output_file)
 {
     // compute inverse prefix array
-    int_vector<32> IPA; IPA.resize( N );
+    IPA.resize( N );
     for( size_t i = 0; i < N; ++i ) { IPA[ PA[i] ] = i; }
 
     vector<pair<int,int>> stpd_array; stpd_array.resize(sampling.size());
@@ -168,7 +170,7 @@ void store_set_lex(const set<int>& sampling, const string output_file)
     }
 
     // compute inverse prefix array
-    int_vector<32> IPA; IPA.resize( N );
+    IPA.resize( N );
     for( size_t i = 0; i < N; ++i ) { IPA[ PA[i] ] = i; }
 
     vector<pair<int,int>> stpd_array; stpd_array.resize(sampling.size());
@@ -193,7 +195,7 @@ void store_set_lex(const set<int>& sampling, const string output_file)
     output.close();
 }
 
-void output_Prefix_Array_BWT(const string output_file, const string output_file_BWT)
+void output_PA_RBWT(const string output_file, const string output_file_BWT)
 {
     // compute prefix array and inverse prefix array
     if(PA.size() == 0)
@@ -226,6 +228,62 @@ void output_Prefix_Array_BWT(const string output_file, const string output_file_
     output_bwt.close();
 }
 
+void output_PA_RBWT_LCS(const string output_file, const string output_file_BWT,
+                                                  const string output_file_LCS)
+{
+    int_vector<8> T_rev;
+    size_t n = T.size();
+    T_rev.resize( n );
+
+    assert( T[n-1] == '\0' );
+    T_rev[n-1] = '\0';
+    for( size_t i = 0; i < n-1; ++i ) {
+        T_rev[ n-2 - i ] = T[ i ];
+    }
+
+    // compute prefix array and LCS array
+    if(PA.size() == 0)
+    {   
+        algorithm::calculate_sa<>( (const unsigned char*) T_rev.data(), n, PA );
+    }
+
+    // compute LCS
+    IPA.resize( N );
+    for( size_t i = 0; i < N; ++i ) {
+        IPA[ PA[i] ] = i;
+    }
+
+    LCS.resize( N );
+    size_t m = 0;
+    for( size_t i = 0; i < N-1; ++i ) {
+        size_t j = PA[IPA[i]-1];
+        while( m < N ) {
+            if( T_rev[i+m] != T_rev[j+m] ) break;
+            ++m;
+        }
+        LCS[IPA[i]] = m;
+        if( m > 0 ) --m;
+    }
+
+    ofstream output_pa(output_file,ofstream::binary);
+    ofstream output_lcs(output_file_LCS,ofstream::binary);
+    ofstream output_bwt(output_file_BWT,ofstream::binary);
+
+    for(size_t i=0;i<PA.size();++i)
+    { 
+        uint64_t x = T.size() - PA[i] - 1;
+        uint64_t y = LCS[i];
+        char c = T[x];
+
+        output_pa.write((char*)&x,5);
+        output_lcs.write((char*)&y,5);
+        output_bwt.write((char*)&c,1);
+    }
+
+    output_pa.close();
+    output_bwt.close();
+}
+
 void help()
 {
     cout << "stpd [options]" << endl <<
@@ -238,7 +296,7 @@ void help()
     "-C          Compute ST colex+- sampling" << endl <<
     "-l          Compute ST lex- sampling" << endl <<
     "-L          Compute ST lex+- sampling" << endl <<
-    "-P          Output the Prefix Array and the BWT of the reversed text" << endl;
+    "-P          Output the Prefix Array, LCS Array, and the BWT of the reversed text" << endl;
     exit(0);
 }
 
@@ -404,7 +462,8 @@ int main( int argc, char **argv ) {
         }
     }
 
-    if(outPA_BWT){ output_Prefix_Array_BWT(input_filename+".pa",input_filename+".rbwt"); }
+    if(outPA_BWT)
+        { output_PA_RBWT_LCS(input_filename+".pa",input_filename+".rbwt",input_filename+".lcs"); }
 
     return 0;
 }

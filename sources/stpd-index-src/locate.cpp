@@ -12,7 +12,8 @@ void help(){
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input index filepath. (REQUIRED)" << std::endl <<
-    "-p <arg>    Patterns FASTA file.  (REQUIRED)" << std::endl;
+    "-p <arg>    Patterns FASTA file.  (REQUIRED)" << std::endl <<
+    "-O          Query the DNA optimized index (Def. False)" << std::endl;
     exit(0);
 } 
 
@@ -26,10 +27,10 @@ int main(int argc, char* argv[])
     }
 
     std::string inputPath, patternFile;
-    bool verbose = false;
+    bool verbose = false, optimized = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:p:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:p:O")) != -1)
     {
         switch (opt){
             case 'h':
@@ -41,20 +42,37 @@ int main(int argc, char* argv[])
             case 'p':
                 patternFile = std::string(optarg);
             break;
+            case 'O':
+                optimized = true;
+            break;
             default:
                 help();
             return -1;
         }
     }
     
-    std::cout << "### Querying ST colex index for " 
-              << inputPath << std::endl;
+    if(optimized)
+    {
+        std::cout << "### Querying DNA optimized ST colex index for " 
+                  << inputPath << std::endl;
 
-    stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
-                     RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-    index.load(inputPath);
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
+                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
+        index.load(inputPath);
 
-    index.locate_fasta(patternFile);
+        index.locate_fasta(patternFile);
+    }
+    else
+    {
+        std::cout << "### Querying ST colex index for " 
+                  << inputPath << std::endl;
+
+        stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
+                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
+        index.load(inputPath);
+
+        index.locate_fasta(patternFile);
+    }
 
     return 0;
 }

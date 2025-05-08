@@ -48,6 +48,47 @@ static unsigned char dna_to_code_table[128] = {
 
 static unsigned char code_to_dna_table[4] = {'A','C','G','T'};
 
+static unsigned char bit_mask_table[16] = {
+    0,   0,   0,   0, 
+    64,  16,  4,   1, 
+    128, 32,  8,   2, 
+    192, 48, 12,   3
+}; 
+
+inline bool_t contained(safe_t s1, safe_t e1, safe_t s2, safe_t e2)
+{
+    if( (s2 >= s1) and (e2 <= e1) )
+        return true;
+    return false;
+}
+
+void inline set_uint_DNA(uchar_t* t, std::string& p)
+{
+    uchar_t bytes = ((p.size()-1)/4); 
+    uchar_t offset = 4-(p.size()%4);
+    for(uint_t i=0;i<p.size();++i)
+        t[bytes-(i/4)] |= 
+        bit_mask_table[(dna_to_code_table[p[i]]*4)+((offset+i)%4)];
+}
+void inline set_uint_DNA_inv(uchar_t* t, std::string& p)
+{
+    uchar_t size = p.size(); 
+    uchar_t offset = 4-(size%4); 
+    for(uint_t i=0;i<size;++i)
+        t[((size-i-1)/4)] |= 
+        bit_mask_table[(dna_to_code_table[p[size-i-1]]*4)+((offset+i)%4)];
+}
+void inline set_uint_DNA_inv(uchar_t* t, std::string& p, uchar_t len, 
+                                            uint_t beg, uchar_t plen)
+{
+    assert(plen <= len);
+    uchar_t size = len; 
+    uchar_t offset = 4-(size%4);
+    for(uint_t i=0;i<plen;++i)
+        t[((size-i-1)/4)] |= 
+        bit_mask_table[(dna_to_code_table[p[beg+plen-i-1]]*4)+((offset+i)%4)];
+}
+
 usafe_t get_5bytes_uint(uchar_t *a, uint_t i=0)
 {
   uint_t offset = (i+1)*5-1;

@@ -21,6 +21,8 @@
 #include <RLZ_DNA.hpp>
 // stpd-array binary search
 #include <stpd_array_binary_search.hpp>
+// stpd-array binary search opt
+#include <stpd_array_binary_search_opt.hpp>
 
 namespace stpd{
 
@@ -39,16 +41,31 @@ public:
 	// empty constructor
 	stpd_index(){}
 
-	void build_colex_m(const std::string &text_filepath)
+	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
+		               const std::string &rbwt_filepath, const std::string &pa_filepath)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
 		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
 		O.build(text_filepath);
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
-		S.build(text_filepath+".colex_m",&O,false); 
+		S.build(sampling_filepath,&O,false); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
-	  	phi.build(text_filepath+".rbwt",text_filepath+".pa");
-	  	//phi.test_phi(3);
+	  	phi.build(rbwt_filepath,pa_filepath);
+	  	
+	  	std::cout << "Done!" << std::endl;
+	}
+
+	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
+		               const std::string &rbwt_filepath, const std::string &pa_filepath,
+		               const std::string &lcs_filepath)
+	{
+		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
+		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
+		O.build(text_filepath);
+		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
+		S.build(text_filepath,sampling_filepath,lcs_filepath,pa_filepath,&O,false); 
+		std::cout << "Step 3) Constructing the phi function..." << std::endl;
+	  	phi.build(rbwt_filepath,pa_filepath);
 	  	
 	  	std::cout << "Done!" << std::endl;
 	}
@@ -66,15 +83,18 @@ public:
 	} */
 
 	// build suffixient index by indexing the supermaximal extensions
-	void build_colex_pm(const std::string &text_filepath)
+	void build_colex_pm(const std::string &text_filepath, const std::string &sampling_filepath,
+		                const std::string &rbwt_filepath, const std::string &pa_filepath)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
 		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
 		O.build(text_filepath);
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
-		S.build(text_filepath+".colex_pm",&O,true); 
+		S.build(sampling_filepath,&O,true); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
-	  	phi.build(text_filepath+".rbwt",text_filepath+".pa");
+	  	phi.build(rbwt_filepath,pa_filepath);
+
+	  	std::cout << "Done!" << std::endl;
 	}
 	
 	usafe_t store(const std::string &index_filepath)
@@ -88,7 +108,7 @@ public:
 		usafe_t phi_size = phi.serialize(out);
 		std::cout << "Storing phi data structure, size = " << phi_size << " bytes" << std::endl;
 
-		std::cout << "Construction done!" << std::endl;
+		std::cout << "Index succesfully stored!" << std::endl;
 		
 		out.close();
 
@@ -112,36 +132,37 @@ public:
 	}
 
 	std::pair<std::vector<usafe_t>,double> 
-						 locate_pattern_exp_search(const std::string pattern) const
+						 locate_pattern_exp_search(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
-		usafe_t i = 1, m = pattern.size();
-		int_t occ = -1;
+		usafe_t m = pattern.size();
+		auto i_occ = this->S.locate_first_prefix(pattern);
 		bool_t mismatch_found;
-		while(i-1 < m)
+
+		while(i_occ.first-1 < m)
 		{
-			auto j = this->S.binary_search_lower_bound(pattern,0,i);
+			auto j = this->S.binary_search_lower_bound(pattern,0,i_occ.first);
 			mismatch_found = std::get<2>(j);
 
 			if(mismatch_found)
 				return std::make_pair(std::vector<usafe_t>{},0);
 
-			occ = std::get<0>(j);
-			usafe_t f = O.LCP(pattern,i,occ+1);
-			i = i + f + 1;
-			occ = occ + f;
+			i_occ.second = std::get<0>(j);
+			usafe_t f = O.LCP(pattern,i_occ.first,i_occ.second+1);
+			i_occ.first = i_occ.first + f + 1;
+			i_occ.second = i_occ.second + f;
 		}
 
 		usafe_t high = 2, low = 0;
-		std::vector<usafe_t> res{usafe_t(occ)};
+		std::vector<usafe_t> res{usafe_t(i_occ.second)};
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
-				occ = phi.phi_safe(occ);  // 0 1 2 3    
-				if(occ == -1)
+				i_occ.second = phi.phi_safe(i_occ.second);  // 0 1 2 3    
+				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
 					binary_search(low,high,m,pattern,res);
@@ -153,7 +174,7 @@ public:
 					return std::make_pair(res,duration.count());			
 				}
 
-				res.push_back(occ);
+				res.push_back(i_occ.second);
 			}
 
 			usafe_t f = O.LCS(pattern,m-1,res[high-1]);
@@ -181,7 +202,7 @@ public:
 		usafe_t i = 1, m = pattern.size();
 		int_t lower_occ, upper_occ;
 		bool_t mismatch_found;
-		
+		/*
 		auto t1 = std::async(std::launch::async, [this, &pattern, &lower_occ, &mismatch_found]() {
 		    this->lower_sample(pattern, lower_occ, mismatch_found);
 		});
@@ -189,10 +210,10 @@ public:
 		    this->upper_sample(pattern, upper_occ);
 		});
 		t1.get(); t2.get();
-		/*
+		*/
 		this->lower_sample(pattern, lower_occ, mismatch_found);
 		this->upper_sample(pattern, upper_occ);
-		*/
+
 		if(mismatch_found)
 			return std::make_pair(std::vector<usafe_t>{},0);
 
@@ -228,6 +249,7 @@ public:
 		{
 			if(i%2 != 0)
 			{
+
 				if(this->S.is_index_large())
 					o = locate_pattern(line);
 				else
@@ -244,6 +266,7 @@ public:
 
 				tot_duration += o.second;
 				c += line.size();
+
 			}
 			else{ header = line; }
 			i++;
