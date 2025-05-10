@@ -12,6 +12,7 @@
 #include <chrono>
 #include <future>
 #include <malloc_count.h>
+
 // inverse phi functions
 #include <r-index_phi_inv.hpp>
 #include <stpd-index_phi_inv.hpp>
@@ -70,18 +71,6 @@ public:
 	  	std::cout << "Done!" << std::endl;
 	}
 
-	/*
-	void build_colex_m_v2(const std::string &text_filepath)
-	{
-		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
-		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
-		O.build(text_filepath);
-		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
-		S.build(text_filepath+".colex_m",&O); 
-		std::cout << "Step 3) Constructing the phi function..." << std::endl;
-	  	phi.build(text_filepath+".rbwt",text_filepath+".pa",S.get_array_point(),S.get_PA_size());
-	} */
-
 	// build suffixient index by indexing the supermaximal extensions
 	void build_colex_pm(const std::string &text_filepath, const std::string &sampling_filepath,
 		                const std::string &rbwt_filepath, const std::string &pa_filepath)
@@ -131,7 +120,7 @@ public:
 		in.close();
 	}
 
-	std::pair<std::vector<usafe_t>,double> 
+	std::pair<std::vector<uint_t>,double> 
 						 locate_pattern_exp_search(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -146,7 +135,7 @@ public:
 			mismatch_found = std::get<2>(j);
 
 			if(mismatch_found)
-				return std::make_pair(std::vector<usafe_t>{},0);
+				return std::make_pair(std::vector<uint_t>{},0);
 
 			i_occ.second = std::get<0>(j);
 			usafe_t f = O.LCP(pattern,i_occ.first,i_occ.second+1);
@@ -155,17 +144,17 @@ public:
 		}
 
 		usafe_t high = 2, low = 0;
-		std::vector<usafe_t> res{usafe_t(i_occ.second)};
+		std::vector<uint_t> res{usafe_t(i_occ.second)};
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
-				i_occ.second = phi.phi_safe(i_occ.second);  // 0 1 2 3    
+				i_occ.second = phi.phi_safe(i_occ.second);
 				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
-					binary_search(low,high,m,pattern,res);
+					binary_search_occs(low,high,m,pattern,res);
 					res.resize(low);
 
 					std::chrono::duration<double> duration = 
@@ -185,7 +174,7 @@ public:
 			high *= 2;
 		}
 
-		binary_search(low,high,m,pattern,res);
+		binary_search_occs(low,high,m,pattern,res);
 		res.resize(low);
 
 		std::chrono::duration<double> duration = 
@@ -194,7 +183,7 @@ public:
 		return std::make_pair(res,duration.count());
 	}
 
-	std::pair<std::vector<usafe_t>,double> 
+	std::pair<std::vector<uint_t>,double> 
 						 locate_pattern(const std::string pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -215,9 +204,9 @@ public:
 		this->upper_sample(pattern, upper_occ);
 
 		if(mismatch_found)
-			return std::make_pair(std::vector<usafe_t>{},0);
+			return std::make_pair(std::vector<uint_t>{},0);
 
-		std::vector<usafe_t> res{usafe_t(lower_occ)};
+		std::vector<uint_t> res{usafe_t(lower_occ)};
 		while(lower_occ != upper_occ)
 		{
 			lower_occ = phi.phi_unsafe(lower_occ);
@@ -240,7 +229,7 @@ public:
 
 		std::string line, header;
 		usafe_t i=0, c=0;
-		std::pair<std::vector<usafe_t>,double> o;
+		std::pair<std::vector<uint_t>,double> o;
 		double tot_duration = 0;
 
 		malloc_count_reset_peak();
@@ -261,12 +250,15 @@ public:
 					for(const auto& e:o.first)
 						output << e << " ";
 					output << std::endl;
+					//output << o.first.size() << std::endl;
 				}
 				else{ output << "-1 " << std::endl; }
 
 				tot_duration += o.second;
 				c += line.size();
 
+				if(not check_occs_correctness(o.first,line))
+					exit(1);
 			}
 			else{ header = line; }
 			i++;
@@ -289,8 +281,28 @@ public:
 
 private:
 
-	inline void binary_search(usafe_t& low, usafe_t& high, usafe_t m, 
-		                      const std::string& pattern, const std::vector<usafe_t>& res) const
+	bool check_occs_correctness(const std::vector<uint_t>& occs, const std::string& patt) const
+	{	
+		if(occs.size() == 0)
+		{
+			std::cerr << "Pattern " << patt << " has no occurrences!" << std::endl;
+			return false;
+		}
+		for(const auto& e : occs)
+		{
+			uint_t lcs = O.LCS(patt,patt.size()-1,e);
+			if(lcs != patt.size())
+			{
+				std::cerr << "Problem with pattern: " << patt << " and occ " << e << std::endl;
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	inline void binary_search_occs(usafe_t& low, usafe_t& high, usafe_t m, 
+		                      const std::string& pattern, const std::vector<uint_t>& res) const
 	{
 		usafe_t mid = (low+high)/2;
 		while( low < high )
@@ -345,7 +357,6 @@ private:
 			occ = occ + f;
 		}
 	}
-
 	
 };
 

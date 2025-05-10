@@ -192,19 +192,14 @@ public:
 		usafe_t m = pattern.size(), 
         i = std::min(static_cast<usafe_t>(this->len),m);
 		int_t occ = -1;
-		bool_t mismatch_found;
 
 		while(i > 0)
 		{
 			auto j = this->Elias_Fano_search_lower_bound(pattern,0,i);
-			mismatch_found = std::get<2>(j);
+			occ = std::get<0>(j);
 
-			usafe_t sample,lcs;
-			this->get_sample_lcs(std::get<0>(j),sample,lcs);
-
-			if(not mismatch_found and (std::get<1>(j) > lcs))
+			if((occ != -1) and (std::get<1>(j) > std::get<2>(j)))
 			{
-				occ = sample;
 				if(i < m)
 				{
 					usafe_t f = O->LCP(pattern,i,occ+1);
@@ -275,7 +270,7 @@ public:
 			this->bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search), pattern, this->len, 
 				                                                   pend-to_match, to_match);
 			// search for the bitpacked pattern
-			       r = ef.rank1(search);
+			       r = ef.rank1(search);    
 			uint_t s = ef.select1(r);
 			uint_t mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
 
@@ -293,35 +288,48 @@ public:
 					                                                   pend-to_match, to_match);
 				r_ = ef.rank1(search_)-1;
 			}
-
 			low  = bv.select(r); high = bv.select(r_);
-		}
 
-		// stop if first pattern character doesn't occur in the text
-		if((high - low) > 0)
-		{ 
-			high--;
-			lcp = O->LCS(pattern,pend-1,this->get_sample(high)); 
-			mid = (low+high)/2;
-		}
-		else
-			return std::make_tuple(-1,0,true);
-
-		while( low < high )
-		{		
-			auto j = O->LCS_char(pattern,pend-1,this->get_sample(mid)); 
-	
-			if((j.first != plen) and (j.second < pattern[pend-j.first-1]))    
+			if(this->get_sample(low)+1 < this->len)
 			{
-				low = mid+1;
+				r++;
+				s = ef.select1(r);
+				mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
+
+				if( mlen < to_match )
+					return std::make_tuple(-1,0,0);
+
+				low  = bv.select(r);
+				if(r == r_){ r_++; high = bv.select(r_); }
+			}
+		}
+		{ // Run the binary search
+			// stop if first pattern character doesn't occur in the text
+			if((high - low) > 0)
+			{ 
+				high--;
+				lcp = O->LCS(pattern,pend-1,this->get_sample(high)); 
+				mid = (low+high)/2;
 			}
 			else
-			{
-				high = mid;
-				lcp = j.first;
+				return std::make_tuple(-1,0,true);
+
+			while( low < high )
+			{	
+				auto j = O->LCS_char(pattern,pend-1,this->get_sample(mid)); 
+		
+				if((j.first != plen) and (j.second < pattern[pend-j.first-1]))    
+				{
+					low = mid+1;
+				}
+				else
+				{
+					high = mid;
+					lcp = j.first;
+				}
+	 			
+				mid = (low+high)/2;
 			}
- 			
-			mid = (low+high)/2;
 		}
 
 		return std::make_tuple(this->get_sample(low),lcp,(lcp != plen));
@@ -377,7 +385,7 @@ private:
 		return this->stpd.get_int(i*(log_n+log_l)+log_n, log_l);
 	}
 
-	std::tuple<uint_t,uint_t,bool_t> 
+	std::tuple<safe_t,uint_t,uint_t> 
 		Elias_Fano_search_lower_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
 	{
 		uint_t plen = pend-pstart;
@@ -393,9 +401,24 @@ private:
 		uint_t mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
 
 		if( mlen < to_match )
-			return std::make_tuple(bv.select(r),0,true);	
+			return std::make_tuple(-1,0,0);	
 
-		return std::make_tuple(bv.select(r),to_match,false);
+		usafe_t sample, lcs;
+		this->get_sample_lcs(bv.select(r),sample,lcs);
+		if(sample+1 < this->len)
+		{
+			r++;
+			s = ef.select1(r);
+			mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
+
+			if( mlen < to_match )
+				return std::make_tuple(-1,0,0);
+
+			this->get_sample_lcs(bv.select(r),sample,lcs);
+		}
+
+		//return std::make_tuple(bv.select(r),to_match,false);
+		return std::make_tuple(sample,to_match,lcs);
 	}
 
 	text_oracle* O;
