@@ -77,3 +77,8 @@ if(NOT gsacak_POPULATED)
     target_compile_options(gsacak64 PUBLIC -DM64)
   # add_subdirectory(${gsacak_SOURCE_DIR} ${gsacak_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
+
+######
+
+add_subdirectory(sux)
+target_include_directories(sux PUBLIC sux)

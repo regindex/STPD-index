@@ -63,6 +63,10 @@ public:
 		for(auto& idx: last_first){ builder.set(idx.first); }
 		last = b_v(builder);
 
+		//std::vector<uint64_t> onset; onset.reserve(last_first.size());
+		//for(auto& idx: last_first){ onset.push_back(idx.first); }
+		//last.build(onset,bwt_length);
+
 		first = sdsl::int_vector<>(last_first.size(),0,bitsize(uint64_t(bwt_length)));
 		if(verbose)
 			std::cout << "Number of BWT runs indexed = " << first.size()+1 << std::endl;
@@ -84,7 +88,7 @@ public:
 		if(idx != L)
 		{
 			auto res = last.successor_rank(idx);
-			//std::cout << res.first << " - " << res.second << std::endl;
+			//std::cout << "-->" << res.first << " - " << res.second << std::endl;
 			return first[res.second-1] - (res.first - idx);
 		}
 		else{ return -1; }

@@ -2,8 +2,10 @@
 # Compiler configuration
 # ##############################################################################
 
-set(CMAKE_C_STANDARD 11)      # For C files
-set(CMAKE_CXX_STANDARD 14)    # For C++ files
+set(CMAKE_C_STANDARD 11)    
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 14) 
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Add the basic compiler options
 # add_compile_options("-std=c++14")
@@ -19,3 +21,5 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fno-omit
 #add_compile_options($<$<CONFIG:Release>:-ansi -march=native -funroll-loops -O3>)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ansi -march=native -funroll-loops -O3 -DNDEBUG -w")
 #add_definitions($<$<CONFIG:Release>:-DNDEBUG>)
+
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")

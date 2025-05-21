@@ -13,8 +13,11 @@
 #include <future>
 #include <malloc_count.h>
 
-// inverse phi functions
+// inverse r-index phi function
 #include <r-index_phi_inv.hpp>
+// inverse r-index optimized phi function
+#include <r-index_phi_inv_sux.hpp>
+// inverse compressed phi function
 #include <stpd-index_phi_inv.hpp>
 // bitpacked text oracle
 #include <bitpacked_text_oracle.hpp>
@@ -24,6 +27,8 @@
 #include <stpd_array_binary_search.hpp>
 // stpd-array binary search opt
 #include <stpd_array_binary_search_opt.hpp>
+// stpd-array binary search opt v2
+#include <stpd_array_binary_search_opt_v2.hpp>
 
 namespace stpd{
 
@@ -142,15 +147,16 @@ public:
 			i_occ.first = i_occ.first + f + 1;
 			i_occ.second = i_occ.second + f;
 		}
-
+		//std::cout << "i_occ.second = " << i_occ.second << std::endl;
 		usafe_t high = 2, low = 0;
-		std::vector<uint_t> res{usafe_t(i_occ.second)};
+		std::vector<uint_t> res{uint_t(i_occ.second)};
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
 				i_occ.second = phi.phi_safe(i_occ.second);
+				//std::cout << "i_occ.second = " << i_occ.second << std::endl;
 				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
@@ -206,7 +212,7 @@ public:
 		if(mismatch_found)
 			return std::make_pair(std::vector<uint_t>{},0);
 
-		std::vector<uint_t> res{usafe_t(lower_occ)};
+		std::vector<uint_t> res{uint_t(lower_occ)};
 		while(lower_occ != upper_occ)
 		{
 			lower_occ = phi.phi_unsafe(lower_occ);
@@ -234,10 +240,14 @@ public:
 
 		malloc_count_reset_peak();
 
+		uint_t tot_occs = 0;
 		while(std::getline(patterns, line))
 		{
 			if(i%2 != 0)
 			{
+				//line = "AATATTGCCTTTCTTTGAGTCAAAGCAATAACATCTTTTTTCTCAGGGACAGTGATCTTATCTGAGGTCCATATTAAATCATCTTCAACAATATAACTGT";
+				// line = "AATATTGCCTTTCCATTCATCCAGAGACATGGAAATATACTCACATCATCTTTTGCTGACCATTCATTGCATAACAAACAAGTTGATTTTGATTTCTAAA";
+				std::cout << line << std::endl;
 
 				if(this->S.is_index_large())
 					o = locate_pattern(line);
@@ -256,9 +266,13 @@ public:
 
 				tot_duration += o.second;
 				c += line.size();
+				tot_occs += o.first.size();
 
+				//std::cout << "No occ= " << o.first.size() << std::endl;
 				if(not check_occs_correctness(o.first,line))
 					exit(1);
+
+				//exit(1);
 			}
 			else{ header = line; }
 			i++;
@@ -270,7 +284,8 @@ public:
 		std::cout << "Memory peak while running pattern matching queries = " <<
 				     malloc_count_peak() << " bytes" << std::endl
 		          << "Elapsed time while running pattern matching queries = " <<
-				     tot_duration << " sec" << std::endl
+				     tot_duration << " sec" << std::endl 
+				  << "Total number of occurrences found = " << tot_occs << std::endl
 		          << "Number of patterns = " << i/2 
 		 		  << ", Total number of characters = " << c << std::endl
 		          << "Elapsed time per pattern = " <<

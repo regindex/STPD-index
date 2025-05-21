@@ -12,8 +12,8 @@ void help(){
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input files base path. (REQUIRED)" << std::endl <<
-    "-v <arg>    Index variant: (colex-|colex+-). (Def. colex-)" << std::endl <<
-    "-O          Enable index optimizations. (Def. False)" << std::endl <<
+    "-v <arg>    Index variant: (colex-|colex+-). (REQUIRED)" << std::endl <<
+    "-O <arg>    Enable DNA index optimizations: (v1|v2). (Def. False)" << std::endl <<
     "-o <arg>    Output index filename. (REQUIRED)" << std::endl;
     exit(0);
 } 
@@ -27,11 +27,11 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    std::string inputPath, outputPath, indexVariant;
-    bool verbose = false, optimizations = false;
+    std::string inputPath, outputPath, indexVariant, optVariant;
+    bool verbose = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:o:v:O")) != -1)
+    while ((opt = getopt(argc, argv, "hi:o:v:O:")) != -1)
     {
         switch (opt){
             case 'h':
@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
                 outputPath = std::string(optarg);
             break;
             case 'O':
-                optimizations = true;
+                optVariant = std::string(optarg);
             break;
             case 'v':
                 indexVariant = std::string(optarg);
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 
     if(inputPath == "" or outputPath == ""){ help(); }
     
-    if(indexVariant == "colex-" and not optimizations)
+    if(indexVariant == "colex-" and optVariant.empty())
     {
         std::cout << "### Constructing the ST colex- index for " 
                   << inputPath << std::endl;
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
                             inputPath+".pa");
         index.store(outputPath);
     }
-    else if(indexVariant == "colex+-" and not optimizations)
+    else if(indexVariant == "colex+-" and optVariant.empty())
     {
         std::cout << "### Constructing the ST colex+- index for " 
                   << inputPath << std::endl;
@@ -79,13 +79,24 @@ int main(int argc, char* argv[])
                              inputPath+".pa");
         index.store(outputPath);
     }
-    else if(indexVariant == "colex-" and optimizations)
+    else if(indexVariant == "colex-" and optVariant == "v1")
     {
         std::cout << "### Constructing the opt ST colex- index for " 
                   << inputPath << std::endl;
 
         stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
+        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
+                            inputPath+".pa",inputPath+".lcs");
+        index.store(outputPath);
+    }
+    else if(indexVariant == "colex-" and optVariant == "v2")
+    {
+        std::cout << "### Constructing the opt v2 ST colex- index for " 
+                  << inputPath << std::endl;
+
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA<>>,
+                         RLZ_DNA<>,stpd::r_index_phi_inv_sux> index;
         index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
                             inputPath+".pa",inputPath+".lcs");
         index.store(outputPath);

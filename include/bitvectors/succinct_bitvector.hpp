@@ -73,7 +73,7 @@ public:
 	 */
 	uint_t select(uint_t i) const
 	{
-		assert(i<number_of_1());
+		//assert(i<number_of_1());
 		return select1(i+1);//in sd_vector, i starts from 1
 	}
 

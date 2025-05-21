@@ -7,6 +7,9 @@ target_include_directories(bitvectors PUBLIC bitvectors)
 add_subdirectory(phi_functions)
 target_include_directories(phi_functions PUBLIC phi_functions)
 
+add_subdirectory(elias_fano)
+target_include_directories(elias_fano PUBLIC elias_fano)
+
 add_subdirectory(stpd_array)
 target_include_directories(stpd_array PUBLIC stpd_array)
 
