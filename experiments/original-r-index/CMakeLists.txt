@@ -21,14 +21,14 @@ add_subdirectory(malloc_count)
 
 message("Building in ${CMAKE_BUILD_TYPE} mode")
 
-set(CMAKE_C_STANDARD 11)      # For C files
-set(CMAKE_CXX_STANDARD 14)    # For C++ files
+set(CMAKE_C_STANDARD 11)    
+set(CMAKE_CXX_STANDARD 14)   
 
 #set(CMAKE_CXX_FLAGS "--std=c++11")
 
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -ggdb -O3 -fstrict-aliasing -DNDEBUG -march=native")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -ggdb -Ofast -fstrict-aliasing -march=native")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -ansi -funroll-loops -w")
+#set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -ggdb -Ofast -fstrict-aliasing -march=native")
 
 add_executable(ri-build ri-build.cpp)
 TARGET_LINK_LIBRARIES(ri-build sdsl)

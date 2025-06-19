@@ -22,11 +22,13 @@ int_vector<32> LCS;
 vector< pair<int,int> > ST;  // each node is a pair of parentID and depth
 vector< int > STLeaf;
 
-int_vector<32> suffix_lex( const int_vector< 8>& T, const int_vector<32>& ISA ) {
+int_vector<32> suffix_lex( const int_vector< 8>& T, const int_vector<32>& ISA )
+{
     return ISA;
 }
 
-int_vector<32> suffix_lex_r( const int_vector< 8>& T, const int_vector<32>& ISA ) {
+int_vector<32> suffix_lex_r( const int_vector< 8>& T, const int_vector<32>& ISA )
+{
     int_vector<32> ret;
     ret.resize( ISA.size() );
     for( size_t i = 0; i < ISA.size(); ++i ) {
@@ -35,7 +37,8 @@ int_vector<32> suffix_lex_r( const int_vector< 8>& T, const int_vector<32>& ISA 
     return ret;
 }
 
-int_vector<32> text_position( const int_vector< 8>& T ) {
+int_vector<32> text_position( const int_vector< 8>& T )
+{
     int_vector<32> ret;
     size_t n = T.size();
     ret.resize( n );
@@ -45,7 +48,8 @@ int_vector<32> text_position( const int_vector< 8>& T ) {
     return ret;
 }
 
-int_vector<32> prefix_colex( const int_vector< 8>& T ) {
+int_vector<32> prefix_colex( const int_vector< 8>& T )
+{
     int_vector<8> T_rev;
     size_t n = T.size();
     T_rev.resize( n );
@@ -69,7 +73,8 @@ int_vector<32> prefix_colex( const int_vector< 8>& T ) {
     return ret;
 }
 
-int_vector<32> prefix_colex_r( const int_vector< 8>& T ) {
+int_vector<32> prefix_colex_r( const int_vector< 8>& T )
+{
     int_vector<8> T_rev;
     size_t n = T.size();
     T_rev.resize( n );
@@ -92,7 +97,8 @@ int_vector<32> prefix_colex_r( const int_vector< 8>& T ) {
     return ret;
 }
 
-set<int> sampling( const int_vector<32>& rank ) {
+set<int> sampling( const int_vector<32>& rank )
+{
     Rank = rank;
     vector< pair<int,int> > SortedV;
 
@@ -287,7 +293,7 @@ void output_PA_RBWT_LCS(const string output_file, const string output_file_BWT,
 void help()
 {
     cout << "stpd [options]" << endl <<
-    "Input: One text. Output: ST path decomposition of the text (stored using 5 bytes per element)." << endl <<
+    "Input: One text. Output: ST path decomposition of the text (stored using 5 bytes per sample)." << endl <<
     "Options:" << endl <<
     "-h          Print this help" << endl <<
     "-i <arg>    Input Text (REQUIRED)" << endl <<
@@ -296,7 +302,8 @@ void help()
     "-C          Compute ST colex+- sampling" << endl <<
     "-l          Compute ST lex- sampling" << endl <<
     "-L          Compute ST lex+- sampling" << endl <<
-    "-P          Output the Prefix Array, LCS Array, and the BWT of the reversed text" << endl;
+    "-P          Output the Prefix Array, LCS Array, and the BWT of the reversed text needed to " <<
+                 "construct the Suffix Tree path decomposition (STPD) index" << endl;
     exit(0);
 }
 
@@ -367,17 +374,6 @@ int main( int argc, char **argv ) {
             LCP[ISA[i]] = m;
             if( m > 0 ) --m;
         }
-
-        /** check LCP
-        for( size_t i = 0; i < N-1; ++i ) {
-            size_t m = 0;
-            while( m < N ) {
-                if( T[SA[i]+m] != T[SA[i+1]+m] ) break;
-                ++m;
-            }
-            cout << LCP[i+1] << ' ' << m << endl;
-        }
-        **/
     }
 
     { // compute ST

@@ -13,7 +13,8 @@ void help(){
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input files base path. (REQUIRED)" << std::endl <<
     "-v <arg>    Index variant: (colex-|colex+-). (REQUIRED)" << std::endl <<
-    "-O <arg>    Enable DNA index optimizations: (v1|v2). (Def. False)" << std::endl <<
+    "-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl <<
+    "-l <arg>    Reference sequence length (if known). (Def. None)" << std::endl <<
     "-o <arg>    Output index filename. (REQUIRED)" << std::endl;
     exit(0);
 } 
@@ -29,9 +30,10 @@ int main(int argc, char* argv[])
 
     std::string inputPath, outputPath, indexVariant, optVariant;
     bool verbose = false;
+    size_t refLen = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:o:v:O:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:o:v:O:l:")) != -1)
     {
         switch (opt){
             case 'h':
@@ -49,6 +51,9 @@ int main(int argc, char* argv[])
             case 'v':
                 indexVariant = std::string(optarg);
             break;
+            case 'l':
+                refLen = std::atoll(optarg);
+            break;
             default:
                 help();
             return -1;
@@ -65,7 +70,7 @@ int main(int argc, char* argv[])
         stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
         index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa");
+                            inputPath+".pa",refLen);
         index.store(outputPath);
     }
     else if(indexVariant == "colex+-" and optVariant.empty())
@@ -76,7 +81,7 @@ int main(int argc, char* argv[])
         stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
         index.build_colex_pm(inputPath,inputPath+".colex_pm",inputPath+".rbwt",
-                             inputPath+".pa");
+                             inputPath+".pa",refLen);
         index.store(outputPath);
     }
     else if(indexVariant == "colex-" and optVariant == "v1")
@@ -87,7 +92,7 @@ int main(int argc, char* argv[])
         stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
         index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa",inputPath+".lcs");
+                            inputPath+".pa",inputPath+".lcs",refLen);
         index.store(outputPath);
     }
     else if(indexVariant == "colex-" and optVariant == "v2")
@@ -95,10 +100,21 @@ int main(int argc, char* argv[])
         std::cout << "### Constructing the opt v2 ST colex- index for " 
                   << inputPath << std::endl;
 
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv_sux> index;
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA_sux<>>,
+                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_sux> index;
         index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa",inputPath+".lcs");
+                            inputPath+".pa",inputPath+".lcs",refLen);
+        index.store(outputPath);
+    }
+    else if(indexVariant == "colex-" and optVariant == "v3")
+    {
+        std::cout << "### Constructing the opt v3 ST colex- index for " 
+                  << inputPath << std::endl;
+
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v3<>,
+                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_intlv> index;
+        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
+                            inputPath+".pa",inputPath+".lcs",refLen);
         index.store(outputPath);
     }
     else{ std::cerr << "Not yet implemented..." << std::endl; exit(1); }

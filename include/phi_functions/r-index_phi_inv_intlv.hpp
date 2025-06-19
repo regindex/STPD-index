@@ -1,17 +1,16 @@
-#ifndef R_INDEX_PHI_HPP_
-#define R_INDEX_PHI_HPP_
+#ifndef R_INDEX_PHI_SUX_INTLV_HPP_
+#define R_INDEX_PHI_SUX_INTLV_HPP_
 
-#include <elias_fano_bitvector.hpp>
+#include <elias_fano_intlv.hpp>
 #include <sdsl/int_vector.hpp>
 
 namespace stpd{
 
-template<class b_v = bv::elias_fano_bitvector>
-class r_index_phi_inv
+class r_index_phi_inv_intlv
 {
 public:
 	// empty constructor
-	r_index_phi_inv(){}
+	r_index_phi_inv_intlv(){}
 
 	void build(const std::string bwt_filename, const std::string sa_filename, bool_t verbose = true)
 	{
@@ -20,18 +19,18 @@ public:
 		std::ifstream sa(sa_filename,std::ifstream::binary);
 		if(not sa){ std::cerr << "Error opening the SA file..." << std::endl; exit(1); }
 
-		char prev, curr; // previous and current BWT character
-		usafe_t curr_sa, prev_sa, bwt_length; // previous and current SA entry
+		char prev = 0, curr = 0; // previous and current BWT character
+		usafe_t curr_sa = 0, prev_sa = 0, bwt_length = 0; // previous and current SA entry
 		// Vector of pairs associating each end-of-run sample with
 		// the corresponding beginning-of-run sample.
 		std::vector<std::pair<usafe_t,usafe_t>> last_first;
 
 		bwt.seekg(0, bwt.end);
-		bwt_length = bwt.tellg();
+		bwt_length = bwt.tellg(); 
 		// skip first entry for $
 		bwt.seekg(1, bwt.beg); sa.seekg(STORE_SIZE, sa.beg);
 
-		// read the first bwt character and SA entry
+		// read the first bwt character and SA entry 
 		bwt.read(&prev,1);
 		sa.read(reinterpret_cast<char*>(&prev_sa), STORE_SIZE);
 		
@@ -52,91 +51,63 @@ public:
 		}
 		// set last SA entry
 		L = prev_sa-1;
-		// close streams
-		bwt.close();
-		sa.close();
 
-		// sort end-of-run samples in ascending order
+		// sort end-of-run samples in increasing order
 		std::sort(last_first.begin(), last_first.end(), [](auto &left, auto &right) {
 		    return left.first < right.first;
 		});
 
-		std::vector<uint_t> onset; onset.reserve(last_first.size());
-		for(auto& idx: last_first){ onset.push_back(idx.first); }
-		last = b_v(onset,bwt_length);
+		// construct a sorted dictionary storing (end of run, beginning of run) sample pairs
+		LFsamples.build(last_first,bwt_length,bitsize(uint64_t(bwt_length)));
 
-		first = sdsl::int_vector<>(last_first.size(),0,bitsize(uint64_t(bwt_length)));
-		if(verbose)
-			std::cout << "Number of BWT runs indexed = " << first.size()+1 << std::endl;
-
-		i=0;
-		for(auto& entry: last_first)
-		{
-			first[i++] = entry.second;
-		}
+		bwt.close();
+		sa.close();
 	}
 
 	int_t phi_safe(const uint_t idx) const
 	{
 		if(idx != L)
 		{
-			auto res = last.successor_rank(idx);
-			return first[res.second-1] - (res.first - idx);
+			auto res = LFsamples.successor_value(idx);
+			return res.second - (res.first - idx);
 		}
 		else{ return -1; }
 	}
 
 	int_t phi_unsafe(const uint_t idx) const
 	{
-		auto res = last.successor_rank(idx);
+		auto res = LFsamples.successor_value(idx);
 
-		return first[res.second-1] - (res.first - idx);
-	}
-
-	void test_phi(uint_t idx)
-	{
-		last.construct_rank_ds();
-		last.construct_select_ds();
-
-		std::cout << idx << std::endl;
-		while(idx != this->L)
-		{
-			idx = phi_safe(idx);
-			std::cout << idx << std::endl;
-		}
+		return res.second - (res.first - idx);
 	}
 
 	void load(std::istream& in)
 	{
 		in.read((char*)&L, sizeof(L));
-		last.load(in);
-		first.load(in);
+
+		LFsamples.load(in);
 	}
 
-	uint_t serialize(std::ostream& out) const
+	uint_t serialize(std::ostream& out)
 	{
 		uint_t w_bytes = 0;
 
 		out.write((char*)&L, sizeof(L));
-
 		w_bytes += sizeof(L);
 
-		w_bytes += last.serialize(out);
-		w_bytes += first.serialize(out);
+		w_bytes += LFsamples.serialize(out);
 
 		return w_bytes;
 	}
 
 private:
-	// last samples
-	b_v last;
+	// last - first samples dictionary
+	sux::bits::InterleavedEliasFano<> LFsamples;
 	// last SA entry
 	uint_t L;
-	// first samples
-	sdsl::int_vector<> first;
 
 };
 
 }
 
-#endif // R_INDEX_PHI_HPP_
+#endif // R_INDEX_PHI_SUX_HPP_

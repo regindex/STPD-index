@@ -10,25 +10,30 @@
 #define STPD_INDEX_HPP_
 
 #include <chrono>
-#include <future>
+//#include <future>
 #include <malloc_count.h>
 
 // inverse r-index phi function
 #include <r-index_phi_inv.hpp>
-// inverse r-index optimized phi function
+// inverse r-index optimized phi functions
 #include <r-index_phi_inv_sux.hpp>
+#include <r-index_phi_inv_intlv.hpp>
 // inverse compressed phi function
 #include <stpd-index_phi_inv.hpp>
 // bitpacked text oracle
-#include <bitpacked_text_oracle.hpp>
+// #include <bitpacked_text_oracle.hpp>
 // rlz text orcale
 #include <RLZ_DNA.hpp>
+// opti rlz text orcale
+#include <RLZ_DNA_sux.hpp>
 // stpd-array binary search
 #include <stpd_array_binary_search.hpp>
 // stpd-array binary search opt
 #include <stpd_array_binary_search_opt.hpp>
 // stpd-array binary search opt v2
 #include <stpd_array_binary_search_opt_v2.hpp>
+// stpd-array binary search opt v3
+#include <stpd_array_binary_search_opt_v3.hpp>
 
 namespace stpd{
 
@@ -48,11 +53,12 @@ public:
 	stpd_index(){}
 
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
-		               const std::string &rbwt_filepath, const std::string &pa_filepath)
+		               const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
 		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
-		O.build(text_filepath);
+		if(refLen > 0){ O.build(text_filepath,refLen); }
+		else{ O.build(text_filepath,1.0,0); }
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(sampling_filepath,&O,false); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
@@ -63,11 +69,12 @@ public:
 
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
 		               const std::string &rbwt_filepath, const std::string &pa_filepath,
-		               const std::string &lcs_filepath)
+		               const std::string &lcs_filepath, size_t refLen)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
 		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
-		O.build(text_filepath);
+		if(refLen > 0){ O.build(text_filepath,refLen); }
+		else{ O.build(text_filepath,1.0,0); }
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(text_filepath,sampling_filepath,lcs_filepath,pa_filepath,&O,false); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
@@ -78,11 +85,12 @@ public:
 
 	// build suffixient index by indexing the supermaximal extensions
 	void build_colex_pm(const std::string &text_filepath, const std::string &sampling_filepath,
-		                const std::string &rbwt_filepath, const std::string &pa_filepath)
+		                const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
 	{
 		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
 		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
-		O.build(text_filepath);
+		if(refLen > 0){ O.build(text_filepath,refLen); }
+		else{ O.build(text_filepath,1.0,0); }
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(sampling_filepath,&O,true); 
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
@@ -125,7 +133,7 @@ public:
 		in.close();
 	}
 
-	std::pair<std::vector<uint_t>,double> 
+	std::tuple<std::vector<uint_t>,double,double> 
 						 locate_pattern_exp_search(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -140,14 +148,16 @@ public:
 			mismatch_found = std::get<2>(j);
 
 			if(mismatch_found)
-				return std::make_pair(std::vector<uint_t>{},0);
+				return std::make_tuple(std::vector<uint_t>{},0,0);
 
 			i_occ.second = std::get<0>(j);
 			usafe_t f = O.LCP(pattern,i_occ.first,i_occ.second+1);
 			i_occ.first = i_occ.first + f + 1;
 			i_occ.second = i_occ.second + f;
 		}
-		//std::cout << "i_occ.second = " << i_occ.second << std::endl;
+		std::chrono::duration<double> duration_mid = 
+				std::chrono::high_resolution_clock::now() - start;
+
 		usafe_t high = 2, low = 0;
 		std::vector<uint_t> res{uint_t(i_occ.second)};
 		while(true)
@@ -156,7 +166,6 @@ public:
 			while(phi_steps-- > 0)
 			{
 				i_occ.second = phi.phi_safe(i_occ.second);
-				//std::cout << "i_occ.second = " << i_occ.second << std::endl;
 				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
@@ -166,7 +175,7 @@ public:
 					std::chrono::duration<double> duration = 
 							std::chrono::high_resolution_clock::now() - start;
 
-					return std::make_pair(res,duration.count());			
+					return std::make_tuple(res,duration.count(),duration_mid.count());			
 				}
 
 				res.push_back(i_occ.second);
@@ -186,10 +195,10 @@ public:
 		std::chrono::duration<double> duration = 
 				std::chrono::high_resolution_clock::now() - start;
 
-		return std::make_pair(res,duration.count());
+		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
 
-	std::pair<std::vector<uint_t>,double> 
+	std::tuple<std::vector<uint_t>,double,double> 
 						 locate_pattern(const std::string pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -197,20 +206,15 @@ public:
 		usafe_t i = 1, m = pattern.size();
 		int_t lower_occ, upper_occ;
 		bool_t mismatch_found;
-		/*
-		auto t1 = std::async(std::launch::async, [this, &pattern, &lower_occ, &mismatch_found]() {
-		    this->lower_sample(pattern, lower_occ, mismatch_found);
-		});
-		auto t2 = std::async(std::launch::async, [this, &pattern, &upper_occ]() {
-		    this->upper_sample(pattern, upper_occ);
-		});
-		t1.get(); t2.get();
-		*/
+
 		this->lower_sample(pattern, lower_occ, mismatch_found);
 		this->upper_sample(pattern, upper_occ);
 
 		if(mismatch_found)
-			return std::make_pair(std::vector<uint_t>{},0);
+			return std::make_tuple(std::vector<uint_t>{},0,0);
+
+		std::chrono::duration<double> duration_mid = 
+				std::chrono::high_resolution_clock::now() - start;
 
 		std::vector<uint_t> res{uint_t(lower_occ)};
 		while(lower_occ != upper_occ)
@@ -222,12 +226,9 @@ public:
 		std::chrono::duration<double> duration = 
 				std::chrono::high_resolution_clock::now() - start;
 
-		return std::make_pair(res,duration.count());
+		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
 
-	//template<
-    //std::pair<std::vector<usafe_t>, double> (*locate_all)(const std::string&) const
-	//>
 	void locate_fasta(const std::string patternFile) const
 	{
 		std::ifstream patterns(patternFile);
@@ -235,8 +236,8 @@ public:
 
 		std::string line, header;
 		usafe_t i=0, c=0;
-		std::pair<std::vector<uint_t>,double> o;
-		double tot_duration = 0;
+		std::tuple<std::vector<uint_t>,double,double> o;
+		double tot_duration = 0, binary_search_duration = 0;
 
 		malloc_count_reset_peak();
 
@@ -245,34 +246,22 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				//line = "AATATTGCCTTTCTTTGAGTCAAAGCAATAACATCTTTTTTCTCAGGGACAGTGATCTTATCTGAGGTCCATATTAAATCATCTTCAACAATATAACTGT";
-				// line = "AATATTGCCTTTCCATTCATCCAGAGACATGGAAATATACTCACATCATCTTTTGCTGACCATTCATTGCATAACAAACAAGTTGATTTTGATTTCTAAA";
-				std::cout << line << std::endl;
-
 				if(this->S.is_index_large())
 					o = locate_pattern(line);
 				else
 					o = locate_pattern_exp_search(line);
 
 				output << header << std::endl;
-				if(o.first.size() >= 0)
-				{ 
-					for(const auto& e:o.first)
-						output << e << " ";
-					output << std::endl;
-					//output << o.first.size() << std::endl;
-				}
+				if(std::get<0>(o).size() >= 0) { output << std::get<0>(o).size() << std::endl; }
 				else{ output << "-1 " << std::endl; }
 
-				tot_duration += o.second;
+				tot_duration += std::get<1>(o);
+				binary_search_duration += std::get<2>(o);
 				c += line.size();
-				tot_occs += o.first.size();
+				tot_occs += std::get<0>(o).size();
 
-				//std::cout << "No occ= " << o.first.size() << std::endl;
-				if(not check_occs_correctness(o.first,line))
+				if(not check_occs_correctness(std::get<0>(o),line))
 					exit(1);
-
-				//exit(1);
 			}
 			else{ header = line; }
 			i++;
@@ -289,9 +278,73 @@ public:
 		          << "Number of patterns = " << i/2 
 		 		  << ", Total number of characters = " << c << std::endl
 		          << "Elapsed time per pattern = " <<
-				     (tot_duration/(i/2))*1000 << " milliSec" << std::endl
+				     (tot_duration/(i/2))*1000000000 << " nanoSec" << std::endl
 		          << "Elapsed time per character = " <<
-				     (tot_duration/(c))*1000000 << " microSec" << std::endl;
+				     (tot_duration/(c))*1000000000 << " nanoSec" << std::endl
+		          << "Elapsed time per occurrence = " <<
+				     (tot_duration/(tot_occs))*1000000000 << " nanoSec" << std::endl
+				  << "Elapsed time running binary search on the STPD samples vector = " <<
+				  	 binary_search_duration << " sec" << std::endl
+				  << "Elapsed time running the phi queries = " <<
+				  	 tot_duration-binary_search_duration << " sec" << std::endl
+				  << "Percentage time taken for running the phi queries = " <<
+				     ((tot_duration-binary_search_duration)/tot_duration)*100 << "%" << std::endl;
+	}
+
+	void locate_fasta_test_running_time(const std::string patternFile) const
+	{
+		std::ifstream patterns(patternFile);
+
+		std::string line, header;
+		usafe_t i=0, c=0;
+		std::tuple<std::vector<uint_t>,double,double> o;
+		double tot_duration = 0, binary_search_duration = 0;
+
+		malloc_count_reset_peak();
+
+		uint_t tot_occs = 0;
+		while(std::getline(patterns, line))
+		{
+			if(i%2 != 0)
+			{
+				if(this->S.is_index_large())
+					o = locate_pattern(line);
+				else
+					o = locate_pattern_exp_search(line);
+
+				tot_duration += std::get<1>(o);
+				binary_search_duration += std::get<2>(o);
+				c += line.size();
+				tot_occs += std::get<0>(o).size();
+
+				if(not check_occs_correctness(std::get<0>(o),line))
+					exit(1);
+			}
+			else{ header = line; }
+			i++;
+		}
+
+		patterns.close();
+
+		std::cout << "Memory peak while running pattern matching queries = " <<
+				     malloc_count_peak() << " bytes" << std::endl
+		          << "Elapsed time while running pattern matching queries = " <<
+				     tot_duration << " sec" << std::endl 
+				  << "Total number of occurrences found = " << tot_occs << std::endl
+		          << "Number of patterns = " << i/2 
+		 		  << ", Total number of characters = " << c << std::endl
+		          << "Elapsed time per pattern = " <<
+				     (tot_duration/(i/2))*1000000000 << " nanoSec" << std::endl
+		          << "Elapsed time per character = " <<
+				     (tot_duration/(c))*1000000000 << " nanoSec" << std::endl
+		          << "Elapsed time per occurrence = " <<
+				     (tot_duration/(tot_occs))*1000000000 << " nanoSec" << std::endl
+				  << "Elapsed time running binary search on the STPD samples vector = " <<
+				  	 binary_search_duration << " sec" << std::endl
+				  << "Elapsed time running the phi queries = " <<
+				  	 tot_duration-binary_search_duration << " sec" << std::endl
+				  << "Percentage time taken for running the phi queries = " <<
+				     ((tot_duration-binary_search_duration)/tot_duration)*100 << "%" << std::endl;
 	}
 
 private:

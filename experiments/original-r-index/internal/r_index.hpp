@@ -354,13 +354,16 @@ public:
 
 	}
 
-	pair<vector<ulint>,double> locate_all_and_time(string& P){
+	tuple<vector<ulint>,double,double> locate_all_and_time(string& P){
 
 		auto start = std::chrono::high_resolution_clock::now();
 
 		vector<ulint> OCC;
 
 		pair<range_t, ulint> res = count_and_get_occ(P);
+
+		std::chrono::duration<double> duration_mid = 
+			std::chrono::high_resolution_clock::now() - start;
 
 		ulint L = std::get<0>(res).first;
 		ulint R = std::get<0>(res).second;
@@ -384,7 +387,7 @@ public:
 		std::chrono::duration<double> duration = 
 			std::chrono::high_resolution_clock::now() - start;
 
-		return make_pair(OCC,duration.count());
+		return make_tuple(OCC,duration.count(),duration_mid.count());
 	}
 
 

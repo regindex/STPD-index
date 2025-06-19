@@ -13,7 +13,7 @@ void help(){
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input index filepath. (REQUIRED)" << std::endl <<
     "-p <arg>    Patterns FASTA file.  (REQUIRED)" << std::endl <<
-    "-O <arg>    Enable DNA index optimizations: (v1|v2). (Def. False)" << std::endl;
+    "-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl;
     exit(0);
 } 
 
@@ -60,18 +60,29 @@ int main(int argc, char* argv[])
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
         index.load(inputPath);
 
-        index.locate_fasta(patternFile);
+        index.locate_fasta_test_running_time(patternFile);
     }
     else if(optVariant == "v2")
     {
         std::cout << "### Querying DNA optimized v2 ST colex index for " 
                   << inputPath << std::endl;
 
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv_sux> index;
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA_sux<>>,
+                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_sux> index;
         index.load(inputPath);
 
-        index.locate_fasta(patternFile);
+        index.locate_fasta_test_running_time(patternFile);
+    }
+    else if(optVariant == "v3")
+    {
+        std::cout << "### Querying DNA optimized v3 ST colex index for " 
+                  << inputPath << std::endl;
+
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v3<>,
+                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_intlv> index;
+        index.load(inputPath);
+
+        index.locate_fasta_test_running_time(patternFile);
     }
     else
     {
@@ -82,7 +93,7 @@ int main(int argc, char* argv[])
                          RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
         index.load(inputPath);
 
-        index.locate_fasta(patternFile);
+        index.locate_fasta_test_running_time(patternFile);
     }
 
     return 0;

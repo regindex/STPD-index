@@ -16,18 +16,6 @@ public:
 	void build(const std::string bwt_filename, const std::string sa_filename,
 		       const sdsl::int_vector<>* stpdA_, usafe_t N)
 	{
-		/*
-		this->stpd = stpdA_;
-
-		sdsl::int_vector<1> mapping(N,0);
-		std::vector<uint_t> mapping_(stpd->size(),0);
-
-		usafe_t i=0;
-		for(const auto& e:*stpd){ mapping[e] = true; }
-		sdsl::rank_support_v<1> rank1_(&mapping);
-		for(const auto& e:*stpd){ mapping_[rank1_(e)] = i++; }
-		*/
-
 		std::ifstream bwt(bwt_filename,std::ifstream::binary);
 		if(not bwt){ std::cerr << "Error opening the BWT file..." << std::endl; exit(1); }
 		std::ifstream sa(sa_filename,std::ifstream::binary);
@@ -56,9 +44,7 @@ public:
 
 			if(curr != prev)
 			{
-				//std::cout << "(" << prev_sa-1 << "," << curr_sa-1 << ")" << std::endl;
 				last_first.push_back(std::make_pair(prev_sa-1,curr_sa-1));
-
 				prev = curr;
 			}
 
@@ -104,55 +90,18 @@ public:
 			f_bv = sdsl::int_vector<1>(last_first.size(),0);
 			for(auto& entry: last_first)
 			{
-				//std::cout << "--> " << entry.second << std::endl;
-				//std::cout << entry.second+1 << " " << mapping.size() << std::endl;
 				if(mapping[entry.second+1])
 				{
-					//std::cout << "<-- " << std::endl;
 					f_bv[i] = true;
-					//std::cout << "rank1_= " << entry.second+1 << " - " << rank1_(entry.second+1) << std::endl;
 					last_to_first[j++] = mapping_[rank1_(entry.second+1)];
 				}
 				else { first[j_++] = entry.second; }
 				i++;
-				//std::cout << "(" << entry.first << "," << entry.second << ") " << std::endl;
 			}
-			//std::cout << "L: " << L << std::endl;
 			this->first.resize(j_);
 			this->last_to_first.resize(j);
 			std::cout << "Number of SA samples in the STPD array = " << j << std::endl;
 		}
-
-		/*
-
-		i=0;
-		usafe_t j=0, j_=0;
-		f_bv = sdsl::int_vector<1>(last_first.size(),0);
-		for(auto& entry: last_first)
-		{
-			if(mapping[entry.second+1])
-			{
-				f_bv[i] = true;
-				last_to_first[j++] = mapping_[rank1_(entry.second+1)];
-			}
-			else { first[j_++] = entry.second; }
-			i++;
-			std::cout << "(" << entry.first << "," << entry.second << ") " << std::endl;
-		}
-		std::cout << "L: " << L << std::endl;
-		this->first.resize(j_);
-		this->last_to_first.resize(j);
-
-		i=0;
-		for(;i<f_bv.size();++i){ std::cout << f_bv[i];  }
-		std::cout << std::endl;
-		i=0;
-		for(;i<first.size();++i){ std::cout << first[i] << " ";  }
-		std::cout << std::endl;
-		i=0;
-		for(;i<last_to_first.size();++i){ std::cout << last_to_first[i] << " ";  }
-		std::cout << std::endl;
-		*/
 	}
 
 	uint_t phi_safe(const uint_t idx) const
@@ -160,22 +109,15 @@ public:
 		if(idx != L)
 		{
 			auto res = last.successor_rank(idx);
-			//std::cout << res.first << " " << res.second << std::endl;
 
 			if(f_bv[res.second-1])
 			{
 				usafe_t no_ones = rank1_(res.second-1) + 1;
-				//std::cout << "no ones= " << no_ones << std::endl;
-				//std::cout << "---> " << last_to_first[no_ones-1] << std::endl;
-				//std::cout << "---> " << (*stpd)[last_to_first[no_ones-1]] << std::endl;
-				//exit(1);
 				return ((*stpd)[last_to_first[no_ones-1]]-1) - (res.first - idx);
 			}
 			else
 			{
 				usafe_t no_zeroes = res.second - rank1_(res.second);
-				//std::cout << "no_zeroes= " << no_zeroes << std::endl;
-				//std::cout << "res= " << first[no_zeroes-1] << std::endl;
 				return first[no_zeroes-1] - (res.first - idx);
 			}
 		}
@@ -185,7 +127,6 @@ public:
 	uint_t phi_unsafe(const uint_t idx) const
 	{
 		auto res = last.successor_rank(idx);
-		//std::cout << res.first << " " << res.second << std::endl;
 
 		if(f_bv[res.second-1])
 		{
@@ -198,10 +139,9 @@ public:
 			return first[no_zeroes-1] - (res.first - idx);
 		}
 	}
-
+	/*
 	void test_phi(uint_t idx)
 	{
-		//std::cout << "ENTRA NEL TEST" << std::endl;
 		last.construct_rank_ds();
 		last.construct_select_ds();
 		rank1_ = sdsl::rank_support_v<1>(&f_bv);
@@ -213,7 +153,7 @@ public:
 			std::cout << idx << std::endl;
 		}
 	}
-
+	*/
 	void load(std::istream& in)
 	{
 		in.read((char*)&L, sizeof(L));
@@ -257,4 +197,4 @@ private:
 
 }
 
-#endif // STPD_INDEX_PHI_HPP_
+#endif // STPD_INDEX_PHI_INV_HPP_

@@ -114,6 +114,7 @@ void locate(std::ifstream& in, string patterns){
 	std::ofstream output(patterns+".occRindex");
 	std::string line, header;
 	size_t ca = 0;
+	size_t tot_occs = 0;
 	size_t i = 0;
 	double tot_duration = 0;
 
@@ -145,14 +146,16 @@ void locate(std::ifstream& in, string patterns){
 			output << header << std::endl;
 			if(OCC.first.size() > 0)
 			{ 
-				for(const auto& e:OCC.first)
-					output << e << " ";
-				output << std::endl;
+				//for(const auto& e:OCC.first)
+				//	output << e << " ";
+				//output << std::endl;
+				output << OCC.first.size() << endl;
 			}
 			else{ output << "-1 " << line.size() << std::endl; }
-
+			
 			tot_duration += OCC.second;
 			ca += line.size();
+			tot_occs += OCC.first.size();
 		}
 		else{ header = line; }
 		i++;
@@ -167,13 +170,75 @@ void locate(std::ifstream& in, string patterns){
 		     malloc_count_peak() << " bytes" << std::endl
               << "Elapsed time while running pattern matching queries = " <<
 		         tot_duration << " sec" << std::endl
+		      << "Total number of occurrences found = " << tot_occs << std::endl
          	  << "Number of patterns = " << i/2 
  		  	  << ", Total number of characters = " << ca << std::endl
           	  << "Elapsed time per pattern = " <<
-		         (tot_duration/(i/2))*1000 << " milliSec" << std::endl
-          	  << "Elapsed time per character = " <<
-		         (tot_duration/(ca))*1000000 << " microSec" << std::endl;
+		         (tot_duration/(i/2))*1000000000  << " nanoSec" << std::endl
+          	  << "Elapsed time per character = "  <<
+		         (tot_duration/(ca))*1000000000   << " nanoSec" << std::endl
+          	  << "Elapsed time per occurrence = " <<
+		         (tot_duration/(tot_occs))*1000000000   << " nanoSec" << std::endl;
 
+}
+
+template<class idx_t>
+void locate_test_running_time(std::ifstream& in, string patterns)
+{
+    string text;
+    bool c = false;
+
+    idx_t idx;
+
+	idx.load(in);
+
+	cout << "searching patterns in " << patterns << endl;
+	ifstream ifs(patterns);
+
+	std::string line, header;
+	size_t ca = 0;
+	size_t tot_occs = 0;
+	size_t i = 0;
+	double tot_duration = 0, backward_search_duration = 0;
+
+	malloc_count_reset_peak();
+
+	while(std::getline(ifs, line))
+	{
+		if(i%2 != 0)
+		{
+			auto OCC = idx.locate_all_and_time(line);
+			
+			tot_duration += std::get<1>(OCC);
+			backward_search_duration += std::get<2>(OCC);
+			ca += line.size();
+			tot_occs += std::get<0>(OCC).size();
+		}
+		else{ header = line; }
+		i++;
+	}
+
+	ifs.close();
+
+	std::cout << "Memory peak while running pattern matching queries = " <<
+		     malloc_count_peak() << " bytes" << std::endl
+              << "Elapsed time while running pattern matching queries = " <<
+		         tot_duration << " sec" << std::endl
+		      << "Total number of occurrences found = " << tot_occs << std::endl
+         	  << "Number of patterns = " << i/2 
+ 		  	  << ", Total number of characters = " << ca << std::endl
+          	  << "Elapsed time per pattern = " <<
+		         (tot_duration/(i/2))*1000000000  << " nanoSec" << std::endl
+          	  << "Elapsed time per character = "  <<
+		         (tot_duration/(ca))*1000000000   << " nanoSec" << std::endl
+          	  << "Elapsed time per occurrence = " <<
+		         (tot_duration/(tot_occs))*1000000000   << " nanoSec" << std::endl
+			  << "Elapsed time running backward search algorithm = " <<
+			  	 backward_search_duration << " sec" << std::endl
+			  << "Elapsed time running phi queries = " <<
+			  	 (tot_duration-backward_search_duration) << " sec" << std::endl
+			  << "Percentage time taken for running the phi queries = " <<
+			     ((tot_duration-backward_search_duration)/tot_duration)*100 << "%" << std::endl;
 }
 
 int main(int argc, char** argv){
@@ -204,7 +269,7 @@ int main(int argc, char** argv){
 
 	}else{
 
-		locate<r_index<> >(in, patt_file);
+		locate_test_running_time<r_index<> >(in, patt_file);
 
 	}
 

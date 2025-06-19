@@ -1,5 +1,5 @@
-#ifndef __RLZ_DNA_HPP__
-#define __RLZ_DNA_HPP__
+#ifndef __RLZ_DNA_SUX_HPP__
+#define __RLZ_DNA_SUX_HPP__
 
 #include <iostream>
 #include <string>
@@ -9,14 +9,14 @@
 #include <sdsl/bits.hpp>
 #include <cassert>
 
-template < class SD_VECTOR = sdsl::sd_vector<> >
-struct RLZ_DNA { 
+template < class SD_VECTOR = sux::bits::EliasFano<> >
+struct RLZ_DNA_sux { 
     // ASSUME: ALPHABET = { 'A', 'C', 'G', 'T' }     ( capital letters )
 
     static const uint64_t RLZ_HEADER = (0x0e8f0000 + 0x0002);
 
-    typedef typename SD_VECTOR::rank_1_type   rank_t;
-    typedef typename SD_VECTOR::select_1_type select_t;
+    //typedef typename SD_VECTOR::rank_1_type   rank_t;
+    //typedef typename SD_VECTOR::select_1_type select_t;
 
     struct builder {
         typedef std::tuple<size_t,size_t,unsigned char> phrase_t;
@@ -260,18 +260,24 @@ struct RLZ_DNA {
         reference.build( text, 0, prefix_len );
 
         parse_info.resize( b.num_phrases() );
-        sdsl::sd_vector_builder sd_builder( text_len-prefix_len+2, b.num_phrases()+1 ); 
-        sd_builder.set(0);
+        std::vector<uint64_t> onset{ 0 }; onset.resize(b.num_phrases()+1);
         size_t relative_offset = 0;
         for( size_t i = 0; i < b.num_phrases(); ++i ) {
             relative_offset += b.phrase_length(i)+1;
-            sd_builder.set( relative_offset );
+            onset.push_back( relative_offset );
             parse_info[i] = (((uint64_t)b.phrase_offset(i)) << 2 ) | bit_packed_DNA_string::pack_char( (uint8_t)b.phrase_char(i) );
         }
         sdsl::util::bit_compress( parse_info );
-        boundary = SD_VECTOR( sd_builder );
-        b_rank   = rank_t( &boundary );
-        b_select = select_t( &boundary );
+
+        size_t i = 1;
+        uint64_t prev = onset[0];
+        for(size_t i_=1;i_<onset.size();++i_)
+        {
+            if( prev != onset[i_] )
+            { prev = onset[i_]; onset[i++] = prev; } 
+        }
+        onset.resize(i);
+        boundary.build( onset, text_len-prefix_len+2 );
 
         std::ofstream fout( input_filename + ".rlz", std::ios::binary );
         serialize( fout );
@@ -291,46 +297,38 @@ struct RLZ_DNA {
         reference.build( text, 0, prefix_len );
 
         parse_info.resize( b.num_phrases() );
-        sdsl::sd_vector_builder sd_builder( text_len-prefix_len+2, b.num_phrases()+1 ); 
-        sd_builder.set(0);
+        std::vector<uint64_t> onset{ 0 }; onset.resize(b.num_phrases()+1);
         size_t relative_offset = 0;
         for( size_t i = 0; i < b.num_phrases(); ++i ) {
             relative_offset += b.phrase_length(i)+1;
-            sd_builder.set( relative_offset );
+            onset.push_back( relative_offset );
             parse_info[i] = (((uint64_t)b.phrase_offset(i)) << 2 ) | bit_packed_DNA_string::pack_char( (uint8_t)b.phrase_char(i) );
         }
         sdsl::util::bit_compress( parse_info );
-        boundary = SD_VECTOR( sd_builder );
-        b_rank   = rank_t( &boundary );
-        b_select = select_t( &boundary );
+
+        size_t i = 1;
+        uint64_t prev = onset[0];
+        for(size_t i_=1;i_<onset.size();++i_)
+        {
+            if( prev != onset[i_] )
+            { prev = onset[i_]; onset[i++] = prev; } 
+        }
+        onset.resize(i);
+        boundary.build( onset, text_len-prefix_len+2 );
 
         std::ofstream fout( input_filename + ".rlz", std::ios::binary );
         serialize( fout );
         fout.close();
     }
 
-    size_t serialize( std::ostream& out ) const {
+    size_t serialize( std::ostream& out ) {
         size_t ret = 0;
         uint64_t header = RLZ_HEADER;
         ret += sdsl::serialize( header, out );
         ret += sdsl::serialize( total_length, out );
         ret += reference.serialize( out );
-        ret += sdsl::serialize( boundary  , out );
-        ret += sdsl::serialize( b_rank    , out );
-        ret += sdsl::serialize( b_select  , out );
+        ret += boundary.serialize( out );
         ret += sdsl::serialize( parse_info, out );
-        return ret;
-    }
-
-    size_t size( void ) const {
-        size_t ret = 0;
-        ret += sizeof( uint64_t );
-        ret += sizeof( total_length );
-        ret += reference.size();
-        ret += sdsl::size_in_bytes( boundary     );
-        ret += sdsl::size_in_bytes( b_rank       );
-        ret += sdsl::size_in_bytes( b_select     );
-        ret += sdsl::size_in_bytes( parse_info   );
         return ret;
     }
 
@@ -338,15 +336,13 @@ struct RLZ_DNA {
         if( i >= total_length ) return '\0';
         if( i < reference.len ) return reference.extract( i );
         i -= reference.len;
-        size_t blk_id    = b_rank(i+1)-1;
-        std::cout << "i= " << i << " blk_id= " << blk_id << std::endl;
+        size_t blk_id    = boundary.rank1(i+1)-1;
         size_t p_info    = parse_info[blk_id];
         size_t offset    = p_info >>   2;
         unsigned char ch = bit_packed_DNA_string::unpack_char( p_info &  0x3 );
 
-        size_t curr_begin = b_select( blk_id+1 );
-        size_t next_begin = b_select( blk_id+2 );
-        std::cout << "curr_begin= " << curr_begin << " next_begin= " << next_begin << std::endl;
+        size_t curr_begin, next_begin;
+        curr_begin = boundary.select1( blk_id, &next_begin );
 
         assert( curr_begin <= i );
         assert( i <= next_begin );
@@ -366,12 +362,14 @@ struct RLZ_DNA {
             ++l;
         }
         if( p+l == m || t+l == total_length ) return l;
-        size_t blk_id = b_rank( t+l+1 - rlen )-1;
+        size_t blk_id = boundary.rank1( t+l+1 - rlen )-1;
         size_t p_info = parse_info[ blk_id ];
         size_t offset         = p_info >>   2;
         unsigned char ch_last = bit_packed_DNA_string::unpack_char( p_info &  0x3 );
-        size_t curr_begin = b_select( blk_id+1 );
-        size_t next_begin = b_select( blk_id+2 );
+
+        size_t curr_begin, next_begin;
+        curr_begin = boundary.select1( blk_id, &next_begin );
+
         size_t remaining  = next_begin - ( t+l - rlen ) - 1;
         offset += t+l - rlen - curr_begin;
 
@@ -392,7 +390,7 @@ struct RLZ_DNA {
             ch_last = bit_packed_DNA_string::unpack_char( p_info &  0x3 );
             
             curr_begin = next_begin;
-            next_begin = b_select( blk_id+2 );
+            next_begin = boundary.select1( blk_id+1 );
             remaining  = next_begin - curr_begin - 1;
         }
         return l;
@@ -417,12 +415,14 @@ struct RLZ_DNA {
             return std::make_pair(l,(unsigned char)-1);
         }
 
-        size_t blk_id = b_rank( t - rlen + 1 )-1;
+        size_t blk_id = boundary.rank1( t - rlen + 1 )-1;
         size_t p_info = parse_info[ blk_id ];
         size_t offset         = p_info >>   2;
         unsigned char ch_last = bit_packed_DNA_string::unpack_char( p_info &  0x3 );
-        size_t curr_begin = b_select( blk_id+1 );
-        size_t next_begin = b_select( blk_id+2 );
+
+        size_t curr_begin, next_begin;
+        curr_begin = boundary.select1( blk_id, &next_begin );
+
         size_t remaining  = ( t - rlen ) - curr_begin + 1;
 
         while( l <= p && t-l >= rlen ) {
@@ -448,7 +448,7 @@ struct RLZ_DNA {
             ch_last = bit_packed_DNA_string::unpack_char( p_info &  0x3 );
             
             next_begin = curr_begin;
-            curr_begin = b_select( blk_id+1 );
+            curr_begin = boundary.select1( blk_id );
             remaining  = next_begin - curr_begin;
         }
 
@@ -468,8 +468,6 @@ struct RLZ_DNA {
         sdsl::read_member( total_length, in );
         reference .load( in );
         boundary  .load( in );
-        b_rank    .load( in, &boundary );
-        b_select  .load( in, &boundary );
         parse_info.load( in );
         return !!in;
     }
@@ -487,8 +485,6 @@ struct RLZ_DNA {
     uint64_t     total_length;
     bit_packed_DNA_string reference;
     SD_VECTOR    boundary;
-    rank_t       b_rank;
-    select_t     b_select;
     sdsl::int_vector<>  parse_info;
 };
 

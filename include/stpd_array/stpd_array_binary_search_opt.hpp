@@ -193,6 +193,7 @@ public:
         i = std::min(static_cast<usafe_t>(this->len),m);
 		int_t occ = -1;
 		bool_t mismatch_found;
+		//std::cout << "i: " << i << std::endl;
 
 		while(i > 0)
 		{
@@ -201,13 +202,18 @@ public:
 
 			usafe_t sample,lcs;
 			this->get_sample_lcs(std::get<0>(j),sample,lcs);
+			// if sample < this->len then it is a false match spanning
+			// the beginning of the text; thus we skip it.
+			if(sample < i-1){ mismatch_found = true; }
 
 			if(not mismatch_found and (std::get<1>(j) > lcs))
 			{
 				occ = sample;
+				//std::cout << "occ: " << occ << " i: " << i << std::endl;
 				if(i < m)
 				{
 					usafe_t f = O->LCP(pattern,i,occ+1);
+					
 					i = i + f + 1;
 					occ = occ + f;
 				}
@@ -295,6 +301,25 @@ public:
 			}
 
 			low  = bv.select(r); high = bv.select(r_);
+
+			if(this->get_sample(low)+1 < this->len)
+			{
+				low++;
+
+				if( low == high )
+				{
+					r++;
+					s = ef.select1(r);
+					mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
+
+					if( mlen < to_match )
+						return std::make_tuple(-1,0,0);
+
+					low = bv.select(r);
+					r_++; 
+					high = bv.select(r_);
+				}
+			}
 		}
 
 		// stop if first pattern character doesn't occur in the text
@@ -393,7 +418,7 @@ private:
 		uint_t mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
 
 		if( mlen < to_match )
-			return std::make_tuple(bv.select(r),0,true);	
+			return std::make_tuple(0,0,true);	
 
 		return std::make_tuple(bv.select(r),to_match,false);
 	}

@@ -1,4 +1,4 @@
-set(STPD_SOURCES stpd_array_binary_search.hpp stpd_array_binary_search_opt.hpp stpd_array_binary_search_opt_v2.hpp)
+set(STPD_SOURCES stpd_array_binary_search.hpp stpd_array_binary_search_opt.hpp stpd_array_binary_search_opt_v2.hpp stpd_array_binary_search_opt_v3.hpp)
 
 add_library(stpd_array OBJECT ${STPD_SOURCES})
-target_link_libraries(common text_oracles bitvectors elias_fano sdsl divsufsort divsufsort64)
+target_link_libraries(stpd_array PUBLIC common text_oracles bitvectors)

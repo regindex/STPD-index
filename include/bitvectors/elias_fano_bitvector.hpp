@@ -20,6 +20,24 @@ class elias_fano_bitvector{
 public:
 	// empty constructor
 	elias_fano_bitvector(){}
+	// parametrized constructor when input is a bitvector
+	elias_fano_bitvector(std::vector<bool> &b)
+	{
+		if(b.size()==0) return;
+
+		n = b.size();
+		m = 0;
+
+		sdsl::bit_vector bv_(b.size());
+
+		for(uint64_t i=0;i<b.size();++i)
+		{
+			bv_[i] = b[i];
+			if(b[i]){ m++; }
+		}
+
+		bv = sdsl::sd_vector<>(bv_);
+	}
 	// parametrized constructor when input is the onset vector
 	elias_fano_bitvector(const std::vector<uint_t>& onset, const uint_t bsize)
 	{
