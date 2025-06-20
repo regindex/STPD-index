@@ -50,8 +50,3 @@ add_subdirectory(external)
 # ------------------------------------------------------------------------------
 add_subdirectory(include)
 add_subdirectory(sources)
-
-# Set script containing the C++ binary interfaces
-# ------------------------------------------------------------------------------
-configure_file(${PROJECT_SOURCE_DIR}/interfaces/compute-STPD-sampling.py ${PROJECT_BINARY_DIR}/compute-STPD-sampling.py)
-#configure_file(${PROJECT_SOURCE_DIR}/interfaces/suffixient-array-index.py ${PROJECT_BINARY_DIR}/suffixient-array-index.py)
