@@ -332,7 +332,7 @@ template <util::AllocType AT = util::AllocType::MALLOC> class EliasFano : public
 		return (select_upper.select(rank) - rank) << l | get_bits(lower_bits, rank * l, l);
 	}
 
-	uint64_t select1(const uint64_t rank, uint64_t *const next) const {
+	size_t select1(const uint64_t rank, size_t *const next) const {
 		uint64_t s, t;
 		s = select_upper.select(rank, &t) - rank;
 		t -= rank + 1;
