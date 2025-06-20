@@ -9,8 +9,8 @@ namespace stpd{
 class r_index_phi_inv_sux
 {
 public:
-	// empty constructor
-	r_index_phi_inv_sux(){}
+	
+	r_index_phi_inv_sux(){} // empty constructor
 
 	void build(const std::string bwt_filename, const std::string sa_filename, bool_t verbose = true)
 	{
@@ -115,15 +115,11 @@ public:
 	}
 
 private:
-	// last samples
-	sux::bits::EliasFano<> last;
-	// last SA entry
-	uint_t L;
-	// first samples
-	sdsl::int_vector<> first;
-
+	
+	sux::bits::EliasFano<> last; // last samples
+	uint_t L; // last SA entry
+	sdsl::int_vector<> first; // first samples
 };
-
 }
 
 #endif // R_INDEX_PHI_SUX_HPP_

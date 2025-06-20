@@ -342,7 +342,7 @@ template <util::AllocType AT = util::AllocType::MALLOC> class EliasFano : public
 		return s << l | get_bits(lower_bits, position, l);
 	}
 
-	// return the successor of i and its rank
+	/** return the successor of i and its rank **/
 	std::pair<uint64_t,uint64_t> successor_rank(uint64_t i) const
 	{
 		std::pair<uint64_t,uint64_t> res;
@@ -361,9 +361,9 @@ template <util::AllocType AT = util::AllocType::MALLOC> class EliasFano : public
 			   sizeof(selectz_upper) * 8 + sizeof(*this) * 8;
 	}
 
-	usafe_t serialize(std::ostream& out)
+	uint64_t serialize(std::ostream& out)
 	{
-		usafe_t w_bytes = 0;
+		uint64_t w_bytes = 0;
 
 		out.write((char*)&num_bits, sizeof(num_bits));
 		out.write((char*)&num_ones, sizeof(num_ones));
@@ -406,8 +406,6 @@ template <util::AllocType AT = util::AllocType::MALLOC> class EliasFano : public
 		upper_bits.load(in);
 		select_upper.load(in,&upper_bits);
 		selectz_upper.load(in,&upper_bits);
-		//bv.load(in);
-		//alph.load(in);
 	}
 };
 

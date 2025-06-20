@@ -3,7 +3,7 @@
 // by a MIT license that can be found in the LICENSE file.
 
 /*
- *  common.hpp: Common definitions and functions file
+ *  common.hpp: Common definitions and functions
  */
 
 #ifndef COMMON__HPP_

@@ -2,15 +2,15 @@
 #define R_INDEX_PHI_SUX_INTLV_HPP_
 
 #include <elias_fano_intlv.hpp>
-#include <sdsl/int_vector.hpp>
+#include <common.hpp>
 
 namespace stpd{
 
 class r_index_phi_inv_intlv
 {
 public:
-	// empty constructor
-	r_index_phi_inv_intlv(){}
+	
+	r_index_phi_inv_intlv(){} // empty constructor
 
 	void build(const std::string bwt_filename, const std::string sa_filename, bool_t verbose = true)
 	{
@@ -101,13 +101,10 @@ public:
 	}
 
 private:
-	// last - first samples dictionary
-	sux::bits::InterleavedEliasFano<> LFsamples;
-	// last SA entry
-	uint_t L;
 
+	sux::bits::InterleavedEliasFano<> LFsamples; // last - first samples dictionary
+	uint_t L; // last SA entry
 };
-
 }
 
-#endif // R_INDEX_PHI_SUX_HPP_
+#endif // R_INDEX_PHI_INV_INTLV_HPP_

@@ -209,7 +209,6 @@ private:
   	// select data structure
   	sdsl::select_support_sd<> select1_;
 };
-
 }
 
-#endif // ELIAS_FANO_DS_HPP_
+#endif // ELIAS_FANO_BITVECTOR_HPP_

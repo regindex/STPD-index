@@ -1,5 +1,7 @@
 # STPD-index
 
+This repository contains an implementation of the Suffix Tree Path Decomposition index (\texttt{STPD-index}).
+
 ## Download and Install
 
 ~~~~
@@ -15,21 +17,49 @@ make
 
 The \texttt{STPD-index} tool requires
 * A Linux or MacOS 64-bit operating system.
-* A modern Python 3 release version 3.7 or higher.
 * A modern C++11\14 compiler such as `g++` version 4.9 or higher.
-* The zlib library installed on your system.
 
 ### Usage
 
-```console
-// Construct the ST colex- index
-./sources/path-decomp-src/stpd_small -i ../data/toy.txt -o ../data/toy.txt.colex_m -c
-./sources/stpd-index-src/build_store_stpd_index -i ../data/toy.txt -o ../data/toy_small_index -v small
-
-// Construct the ST colex+- index
-./sources/path-decomp-src/stpd_small -i ../data/toy.txt -o ../data/toy.txt.colex_pm -C
-./sources/stpd-index-src/build_store_stpd_index -i ../data/toy.txt -o ../data/toy_large_index -v large
-
-// Run locate all ST colex index
-./sources/stpd-index-src/locate -i ../data/toy_small_index -p ../data/toy.reads.fasta
+You can construct the STPD-index by using the `build_store_stpd_index` executable:
 ```
+build_store_stpd_index [options]
+Options:
+-h          Print usage info.
+-i <arg>    Input text file path. (REQUIRED)
+-l <arg>    RLZ reference sequence length (if known). (Def. None)
+-o <arg>    Output index file path. (REQUIRED)
+```
+The current implementation is optimized for the DNA alphabet; therefore, the input text must contain only DNA characters (A, C, G, T) and should be provided in ASCII format.
+
+You can query the STPD-index by using the `locate` executable:
+```
+locate [options]
+Options:
+-h          Print usage info.
+-i <arg>    Input index filepath. (REQUIRED)
+-p <arg>    Patterns FASTA file.  (REQUIRED)
+-t <arg>    Maximum number of occurrences to report per pattern. (Def. none)
+```
+This executable runs \textit{locate all occurrences} queries for all patterns in the file specified with the `-p` option. The pattern file must be provided in FASTA format. The `-t` flag allows you to set the maximum number of occurrences to report for each pattern.
+The output is written to a file named after the pattern file, with the `.occs` extension.
+
+### External resources
+
+Below is a list of external software resources used in this software.
+
+* [malloc_count](https://github.com/bingmann/malloc_count)
+* [sdsl-lite](https://github.com/simongog/sdsl-lite)
+* [sux](https://github.com/vigna/sux)
+
+## Reference and citation 
+
+[1] Ruben Becker, Davide Cenzato, Travis Gagie, Sung-Hwan Kim, Ragnar Groot Koerkamp, Giovanni Manzini, Nicola Prezza: Compressing Suffix Trees by Path Decompositions , ArXiv 2025. ([go to the paper](https://arxiv.org/abs/2506.14734))
+
+## Contacts
+
+If you notice any bugs, please feel free to report them by opening a Git issue or by contacting us at davidecenzato Unive email.
+
+## Funding
+
+This project has received funding from the European Research Council (ERC) under the European Union’s Horizon Europe research and innovation programme, project REGINDEX, grant agreement No. 101039208.

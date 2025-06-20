@@ -3,7 +3,7 @@
 // by a MIT license that can be found in the LICENSE file.
 
 /*
- *  stpd_array_binary_search_opt: Optimized stpd-array index implementation
+ *  stpd_array_binary_search_opt: Optimized stpd array binary search implementation
  */
 
 #ifndef STPD_ARRAY_BINARY_SEARCH_OPT_HPP_
@@ -11,15 +11,14 @@
 
 #include <cmath>
 #include <common.hpp>
-#include <elias_fano_bitvector.hpp>
-#include <succinct_bitvector.hpp>
-#include <sdsl/int_vector.hpp>
+
+#include <elias_fano_intlv.hpp> // elias fano dictionary data structure
 
 namespace stpd{
 
-template<class text_oracle, class elias_fano_ds = bv::elias_fano_bitvector,
-         class bitvector = bv::succinct_bitvector>
-class stpd_array_binary_search_opt{
+template< class text_oracle_ds = RLZ_DNA_sux<>,
+          class elias_fano_ds = sux::bits::InterleavedEliasFano<> >
+class stpd_array_binary_search_opt {
 
 public:
 
@@ -27,36 +26,42 @@ public:
 
 	void build(const std::string textFile, const std::string stpdArray, 
 		       const std::string lcsArray, const std::string paArray,
-	           text_oracle* O_, bool_t large_, bool_t verbose = true)
+	           text_oracle_ds* O_,
+	           bool_t large_ = false, safe_t len_ = 15, bool_t verbose = true)
 	{
-		{
+		{ // set input parameters
 			this->large = large_;
 			this->O = O_;
 			this->N = O_->text_length();
-			this->len = 15;
+			this->len = len_;
 		}
+		// compute the number of STPD samples
 	   	std::ifstream file_stpd(stpdArray, std::ios::binary);
+	   	if (!file_stpd.is_open()){ std::cerr << "Error: Could not open " << stpdArray << std::endl; exit(1); }
 	   	file_stpd.seekg(0, std::ios::end);
 	   	this->S = file_stpd.tellg()/5;
 	   	file_stpd.seekg(0, std::ios::beg);
+	   	// open PA and LCS files
 	   	std::ifstream file_lcs(lcsArray, std::ios::binary);
-	   	std::ifstream  file_pa(paArray, std::ios::binary);
-	   	sdsl::int_vector<> LCS;
-	   	{
+	   	if (!file_lcs.is_open()){ std::cerr << "Error: Could not open " << lcsArray << std::endl; exit(1); }
+	   	std::ifstream file_pa (paArray, std::ios::binary);
+	   	if (!file_pa.is_open()){ std::cerr << "Error: Could not open " << paArray << std::endl; exit(1); }
+	   	{ // compite width of samples and lcs entries
 		    this->log_n = bitsize(this->N);
 		    this->log_l = bitsize(this->len);
-		    this->stpd = sdsl::int_vector<>(S*(log_n+log_l)+1,0,1);
-		    LCS = sdsl::int_vector<>(S,0,log_n);
 
 		    if(verbose)
-		    	std::cout << "STPD array width = " << log_n + log_l << " bits per entry"
-		     << std::endl;
+		    	std::cout << "STPD samples width = " << log_n << " bits per entry" << std::endl
+		                  << "LCS values width = " << log_l << " bits per entry" << std::endl;
 		}
+
+		// compute all STPD sample - lcs values pairs
+		std::vector<std::pair<usafe_t,usafe_t>> key_value; 
+		key_value.resize(S);
 	    usafe_t a = 0, b = 0, c = 0, i = 0; 
 	    safe_t min_lcs = std::numeric_limits<safe_t>::max();
 	    std::vector<uchar_t> buffer(15,0);
-		{
-			this->alph = sdsl::int_vector<>(SIGMA,0,40);
+		{ // read and bitpack the sample and lcs values
 			while (file_stpd.read(reinterpret_cast<char*>(&buffer[0]), 5))
 			{
 				a = get_5bytes_uint(&buffer[0]);
@@ -75,9 +80,9 @@ public:
 					uchar_t c = O->extract(a);
 
 					if(b > this->len){ b = this->len; }
-					LCS[i] = min_lcs;
-					set_sample_lcs(i++,a,b);
-					this->alph[c]++;
+
+					uint64_t samLcs = ((0ULL | a) << log_l) | b;
+					key_value[i++].second = samLcs;
 				}
 				min_lcs = std::numeric_limits<safe_t>::max();
 			}
@@ -85,69 +90,45 @@ public:
 		file_stpd.close();
 		file_lcs.close();
 		file_pa.close();
-	    {
-		    usafe_t sum = 0;
-		    for(i=0;i<SIGMA;++i){ usafe_t tmp = this->alph[i]; this->alph[i] = sum; sum += tmp; }
-	  	} 
+
 		if(verbose) 
 		{
 			std::cout << "STPD array size = " << this->S <<
 			std::endl << "Text size = " << this->N <<
 			std::endl << "N/S = " << double(this->N)/S << std::endl;
 		}
-		{ // Construct Elias-Fano optimization
-			std::vector<uint_t> onset;
-			uint_t offset = 0;
+
+		{ // Construct Elias-Fano binary search data structure
+			usafe_t offset = 0, i = 0;
 			std::ifstream file_text(textFile, std::ios::binary);
-			if (!file_text.is_open())
+			if (!file_text.is_open()){ std::cerr << "Error: Could not open " << textFile << std::endl; exit(1); }
+
+			safe_t curr = 0;
+			for(i=0; i<S; ++i)
 			{
-			std::cerr << "Error: Could not open " << 
-						 			 textFile << std::endl; exit(1);
+				curr = key_value[i].second >> log_l;
+
+				std::string text_buffer(this->len,'A');
+				safe_t beg = std::max(static_cast<safe_t>(0),curr-this->len+1);
+				safe_t len_s = std::min(static_cast<safe_t>(this->len),curr+1);
+
+				file_text.seekg(beg, std::ios::beg);
+				file_text.read(&text_buffer[this->len-len_s], len_s);
+			  	file_text.clear();
+
+			  	bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&offset),text_buffer);
+				key_value[i].first = offset;
+				offset = 0;
 			}
-			safe_t prev = -1;
-			std::vector<bool_t> tmp_bv(this->stpd.size()+1,0);
-
-			for(i=0;i<S;++i)
-			{
-				if(LCS[i] < this->len)
-				{
-					tmp_bv[i] = 1; 
-					if(prev != -1)
-					{
-						std::string text_buffer(this->len,'A');
-						safe_t beg = std::max(static_cast<safe_t>(0),prev-this->len+1);
-						safe_t len_ = std::min(static_cast<safe_t>(this->len),prev+1);
-
-						file_text.seekg(beg, std::ios::beg);
-						file_text.read(&text_buffer[this->len-len_], len_);
-					  	file_text.clear();
-
-					  	bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&offset),text_buffer);
-						onset.push_back(offset);
-						offset = 0;
-					}
-					prev = this->get_sample(i);
-				}
-			}
-			tmp_bv[S] = 1;
-
-			std::string text_buffer(this->len,'A');
-			safe_t beg = std::max(static_cast<safe_t>(0),prev-this->len+1);
-			safe_t len_ = std::min(static_cast<safe_t>(this->len),prev+1);
-			file_text.seekg(beg, std::ios::beg);
-			file_text.read(&text_buffer[this->len-len_], len_);
-
-			bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&offset),text_buffer);
-			onset.push_back(offset);
-			this->bv = bitvector(tmp_bv);
-			this->ef = elias_fano_ds(onset,pow(SIGMA_DNA,this->len));
+			// compute the Elias-Fano data structure
+			ef.build(key_value,pow(SIGMA_DNA,this->len),log_n+log_l);
 
 			file_text.close();
 		}
 	}
 
 	usafe_t sA_size() const { return this->S; }
-	int_t get_len() const { return this->len; }
+	safe_t get_len() const { return this->len; }
 	bool_t is_index_large() const { return this->large; }
 
 	usafe_t serialize(std::ostream& out)
@@ -163,17 +144,13 @@ public:
 		w_bytes += sizeof(N) + sizeof(S) + sizeof(len) + sizeof(large) +
 		           						   sizeof(log_n) + sizeof(log_l);
 
-		w_bytes += stpd.serialize(out);
 		w_bytes += ef.serialize(out);
-		w_bytes += bv.serialize(out);
-		w_bytes += alph.serialize(out);
 
 		return w_bytes;
 	}
 
-	void load(std::istream& in, text_oracle* O_)
+	void load(std::istream& in, text_oracle_ds* O_)
 	{
-		O = O_;
 		in.read((char*)&N, sizeof(N));
 		in.read((char*)&S, sizeof(S));
 		in.read((char*)&len, sizeof(len));
@@ -181,39 +158,29 @@ public:
 		in.read((char*)&log_n, sizeof(log_n));
 		in.read((char*)&log_l, sizeof(log_l));
 
-		stpd.load(in);
+		O = O_;
 		ef.load(in);
-		bv.load(in);
-		alph.load(in);
 	}
 
-	std::pair<usafe_t,int_t> locate_first_prefix(const std::string& pattern) const
+	// match all prefixes up to this->len
+	std::pair<usafe_t,safe_t> locate_first_prefix(const std::string& pattern) const
 	{
 		usafe_t m = pattern.size(), 
-        i = std::min(static_cast<usafe_t>(this->len),m);
-		int_t occ = -1;
-		bool_t mismatch_found;
-		//std::cout << "i: " << i << std::endl;
+        		i = std::min(static_cast<usafe_t>(this->len),m),
+        		to_match = i;
+		safe_t occ = -1;
 
 		while(i > 0)
 		{
 			auto j = this->Elias_Fano_search_lower_bound(pattern,0,i);
-			mismatch_found = std::get<2>(j);
+			occ = std::get<0>(j);
 
-			usafe_t sample,lcs;
-			this->get_sample_lcs(std::get<0>(j),sample,lcs);
-			// if sample < this->len then it is a false match spanning
-			// the beginning of the text; thus we skip it.
-			if(sample < i-1){ mismatch_found = true; }
-
-			if(not mismatch_found and (std::get<1>(j) > lcs))
+			if((occ != -1) and (std::get<1>(j) > std::get<2>(j)))
 			{
-				occ = sample;
-				//std::cout << "occ: " << occ << " i: " << i << std::endl;
 				if(i < m)
 				{
 					usafe_t f = O->LCP(pattern,i,occ+1);
-					
+
 					i = i + f + 1;
 					occ = occ + f;
 				}
@@ -222,134 +189,62 @@ public:
 			}
 			i--;
 		}
+		// extend until we match at least this->len characters or
+		// consume all the pattern
+		while(i-1 < to_match)
+		{
+			auto j = this->Elias_Fano_search_lower_bound(pattern,0,i);
+			occ = std::get<0>(j);
+
+			usafe_t f = O->LCP(pattern,i,occ+1);
+			i = i + f + 1;
+			occ = occ + f;
+		}
 
 		return std::make_pair(i,occ);
 	}
 
-	uint_t 
-		binary_search_upper_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
+	usafe_t 
+	binary_search_upper_bound(const std::string& P, usafe_t pstart, usafe_t pend) const
 	{
-		// initialize binary search parameters
-		uint_t low, mid, high, plen;
-		plen = pend - pstart;
-		low  = this->alph[pattern[pend-1]];
-		high = this->alph[pattern[pend-1]+1];
+		std::cerr << "Not yet implemented!" << std::endl;
+		exit(1);
 
-		// stop if first pattern character doesn't occur in the text
-		if((high - low) > 0)
-		{ 
-			if(plen == 1)
-			{
-				return this->get_sample(high-1);
-			}
-			mid = (low+high)/2;
-		}
-		else
-			return -1;
-
-
-		while( low < high )
-		{		
-			auto j = O->LCS_char(pattern,pend-1,this->get_sample(mid)); 
-			
-			if((j.first != plen) and (j.second > pattern[pend-j.first-1])) 
-			{
-				high = mid;
-			}
-			else
-			{
-				low = mid+1;
-			}
-			 			
-			mid = (low+high)/2;
-		}
-
-		return this->get_sample(high-1);
+		return 0;
 	}
 
+	// match all prefixes longer than this->len
 	std::tuple<uint_t,uint_t,bool_t> 
-		binary_search_lower_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
+		binary_search_lower_bound(const std::string& P, usafe_t b, usafe_t e) const
 	{
-		uint_t plen = pend-pstart;
-		uint_t to_match = std::min(static_cast<uint_t>(this->len),plen);
-		uint_t high, low, mid, lcp;
-		uint_t r, r_;
+		usafe_t plen = e - b;
+		assert(plen >= this->len);
+		uint_t to_match = this->len;
 
-		{ // Run the Elias-Fano search
-			// bitpack first to_match characters
-			uint_t search = 0;
-			this->bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search), pattern, this->len, 
-				                                                   pend-to_match, to_match);
-			// search for the bitpacked pattern
-			       r = ef.rank1(search);
-			uint_t s = ef.select1(r);
-			uint_t mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
+		// bitpack first to_match characters
+		uint_t search = 0;
+		this->bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search), P, this->len, 
+			                                                e-to_match, to_match);
+		// search a range in the stpd array based on the fitst len characters suffix
+		auto res = 
+		ef.lower_upper_bound_exact(search);
 
-			if( mlen < to_match )
-				return std::make_tuple(-1,0,true);
-		
-			if(to_match == this->len)
-			{ 
-				r_ = r+1;
-			}
-			else
-			{
-				uint_t search_ = search | (1 << (this->len-to_match)*2)-1;
-				this->bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search_), pattern, this->len, 
-					                                                   pend-to_match, to_match);
-				r_ = ef.rank1(search_)-1;
-			}
+		if(std::get<0>(res) < 0){ return std::make_tuple(-1,0,1); }
 
-			low  = bv.select(r); high = bv.select(r_);
+		// run the binary search if needed
+		if(std::get<0>(res)+1 == std::get<1>(res))
+		{
+			usafe_t lcp = O->LCS(P, e-1-this->len, (std::get<2>(res) >> log_l)-this->len) + this->len;
 
-			if(this->get_sample(low)+1 < this->len)
-			{
-				low++;
-
-				if( low == high )
-				{
-					r++;
-					s = ef.select1(r);
-					mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
-
-					if( mlen < to_match )
-						return std::make_tuple(-1,0,0);
-
-					low = bv.select(r);
-					r_++; 
-					high = bv.select(r_);
-				}
-			}
-		}
-
-		// stop if first pattern character doesn't occur in the text
-		if((high - low) > 0)
-		{ 
-			high--;
-			lcp = O->LCS(pattern,pend-1,this->get_sample(high)); 
-			mid = (low+high)/2;
+			return std::make_tuple((std::get<2>(res) >> log_l),lcp,lcp != plen);
 		}
 		else
-			return std::make_tuple(-1,0,true);
+		{
+			auto bs_res =
+			ef.binary_search_text_oracle(P, b, e, std::get<0>(res), std::get<1>(res)-1, log_l, O);
 
-		while( low < high )
-		{		
-			auto j = O->LCS_char(pattern,pend-1,this->get_sample(mid)); 
-	
-			if((j.first != plen) and (j.second < pattern[pend-j.first-1]))    
-			{
-				low = mid+1;
-			}
-			else
-			{
-				high = mid;
-				lcp = j.first;
-			}
- 			
-			mid = (low+high)/2;
+			return std::make_tuple(std::get<0>(bs_res),std::get<1>(bs_res),std::get<1>(bs_res) != plen);
 		}
-
-		return std::make_tuple(this->get_sample(low),lcp,(lcp != plen));
 	}
 	
 	const sdsl::int_vector<>& get_array() const { return this->stpd; }
@@ -360,7 +255,7 @@ public:
 private:
 
 	void inline bitpack_uint_DNA(uchar_t* t, const std::string& p, uchar_t len, 
-	                                                  uint_t beg, uchar_t plen) const
+	                                                  usafe_t beg, uchar_t plen) const
 	{
 	    assert(plen <= len);
 	    uchar_t size = len; 
@@ -379,67 +274,50 @@ private:
 	        bit_mask_table[(dna_to_code_table[p[size-i-1]]*4)+((offset+i)%4)];
 	}
 
-	inline void set_sample_lcs(usafe_t i, usafe_t sample, usafe_t lcs)
-	{ 
-		this->stpd.set_int(i*(log_n+log_l), sample, log_n);
-		this->stpd.set_int(i*(log_n+log_l)+log_n, lcs, log_l);
-	}
-
-	inline void get_sample_lcs(usafe_t i, usafe_t& sample, usafe_t& lcs) const
-	{ // 0 0 0 0 0 0 0 0 0
-		usafe_t e = this->stpd.get_int(i*(log_n+log_l), log_n+log_l);
-		sample = e & ((1 << log_n)-1);
-		lcs    = e >> log_n;
-	}
-
-	inline usafe_t get_sample(usafe_t i) const
+	std::tuple<safe_t,usafe_t,usafe_t> 
+	Elias_Fano_search_lower_bound(const std::string& P, usafe_t b, usafe_t e) const
 	{
-		return this->stpd.get_int(i*(log_n+log_l), log_n);
-	}
-
-	inline usafe_t get_lcs(usafe_t i) const
-	{
-		return this->stpd.get_int(i*(log_n+log_l)+log_n, log_l);
-	}
-
-	std::tuple<uint_t,uint_t,bool_t> 
-		Elias_Fano_search_lower_bound(const std::string& pattern,uint_t pstart,uint_t pend) const
-	{
-		uint_t plen = pend-pstart;
-		uint_t to_match = std::min(static_cast<uint_t>(this->len),plen);
+		usafe_t plen = e - b;
+		usafe_t to_match = std::min(static_cast<usafe_t>(this->len), plen);
 
 		// bitpack first to_match characters
-		uint_t search = 0;
-		this->bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search), pattern, this->len, 
-			                                                   pend-to_match, to_match);
+		usafe_t search = 0;
+		bitpack_uint_DNA(reinterpret_cast<uint8_t*>(&search), P, this->len, e-to_match, to_match);
 		// search for the bitpacked pattern
-		uint_t r = ef.rank1(search);
-		uint_t s = ef.select1(r);
-		uint_t mlen = (__builtin_clz(search ^ s)-((sizeof(uint_t)*8)-(this->len*2)))/2;
+		safe_t val = ef.lower_bound(search,to_match * alph_w);
 
-		if( mlen < to_match )
-			return std::make_tuple(0,0,true);	
+		// return an empty lower bound if we didn't match the pattern
+		if(val < 0) return std::make_tuple(-1,0,0);	
 
-		return std::make_tuple(bv.select(r),to_match,false);
+		usafe_t sample = val >> log_l, lcs = val & ((1ULL << log_l) - 1);
+		// handle case where the sample is smaller than this->len
+		if(sample+1 < to_match)
+		{
+			val = ef.lower_bound_offset(search,to_match * alph_w,1);
+
+			if(val < 0) return std::make_tuple(-1,0,0);
+
+			sample = val >> log_l;
+			lcs = val & ((1ULL << log_l) - 1);
+		}
+
+		return std::make_tuple(sample,to_match,lcs);
 	}
 
-	text_oracle* O;
+	static constexpr uint8_t alph_w = 2; // DNA alphabet size width
 
-	sdsl::int_vector<> stpd;
-	sdsl::int_vector<> alph;
+	text_oracle_ds* O; // random access text oracle
+	elias_fano_ds ef;  // Elias-Fano binary search data structure
 
-	elias_fano_ds ef;
-	bitvector bv;
+	int_t log_n, log_l; // samples and lcs entries widths
 
-	int_t log_n, log_l;
+	uint_t S;  // number of samples
+	usafe_t N; // text size
+	int_t len; // length of substrings stored in the Elias-Fano ds
 
-	uint_t S;
-	usafe_t N;
-	int_t len;
-
-	bool_t large;
+	bool_t large; // contains both the colex- and colex+ samples
 };
 
 }
 
-#endif // stpd_array_binary_search_HPP_
+#endif // stpd_array_binary_search_opt_HPP

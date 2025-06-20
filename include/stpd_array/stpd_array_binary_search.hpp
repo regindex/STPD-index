@@ -109,11 +109,9 @@ public:
 		if((high - low) > 0)
 		{ 
 			int_t occ = this->stpd[low];
-			//std::cout << "--> " << occ << " - " << low << std::endl;
 			if(i < pattern.size())
 			{
 				usafe_t f = O->LCP(pattern,i,occ+1);
-				//std::cout << "f: " << f << std::endl;
 				i = i + f + 1;
 				occ = occ + f;
 			}

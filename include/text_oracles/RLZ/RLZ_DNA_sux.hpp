@@ -5,9 +5,11 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <cassert>
+
 #include <sdsl/construct.hpp>
 #include <sdsl/bits.hpp>
-#include <cassert>
+#include <elias_fano_sux.hpp>
 
 template < class SD_VECTOR = sux::bits::EliasFano<> >
 struct RLZ_DNA_sux { 

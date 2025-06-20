@@ -8,29 +8,31 @@
 
 void help(){
 
-    std::cout << "build_DNA_index [options]" << std::endl <<
+    std::cout << "locate [options]" << std::endl <<
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input index filepath. (REQUIRED)" << std::endl <<
     "-p <arg>    Patterns FASTA file.  (REQUIRED)" << std::endl <<
-    "-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl;
+    "-t <arg>    Maximum number of occurrences to report per pattern. (Def. none)" << std::endl;
+    //"-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl;
     exit(0);
 } 
 
 int main(int argc, char* argv[])
 {
-    if(argc < 2)
+    if(argc < 3)
     {
         std::cerr << "Wrong number of parameters... See the help messagge:" << std::endl;
         help();
         exit(1);
     }
 
-    std::string inputPath, patternFile, optVariant;
+    std::string inputPath, patternFile; //optVariant;
+    uint64_t maxOcc = (1ULL << 63) | ((1ULL << 63) - 1);
     bool verbose = false;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:p:O:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:p:O:t:")) != -1)
     {
         switch (opt){
             case 'h':
@@ -42,58 +44,28 @@ int main(int argc, char* argv[])
             case 'p':
                 patternFile = std::string(optarg);
             break;
-            case 'O':
-                optVariant = std::string(optarg);
+            case 't':
+                maxOcc = std::stoull(optarg);
             break;
+            //case 'O':
+            //    optVariant = std::string(optarg);
+            //break;
             default:
                 help();
             return -1;
         }
     }
-    
-    if(optVariant == "v1")
+
     {
-        std::cout << "### Querying DNA optimized ST colex index for " 
+        std::cout << "### Running locate all occurrence queries for "
+                  << patternFile << " using the index in "
                   << inputPath << std::endl;
 
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.load(inputPath);
-
-        index.locate_fasta_test_running_time(patternFile);
-    }
-    else if(optVariant == "v2")
-    {
-        std::cout << "### Querying DNA optimized v2 ST colex index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA_sux<>>,
-                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_sux> index;
-        index.load(inputPath);
-
-        index.locate_fasta_test_running_time(patternFile);
-    }
-    else if(optVariant == "v3")
-    {
-        std::cout << "### Querying DNA optimized v3 ST colex index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v3<>,
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt<>,
                          RLZ_DNA_sux<>,stpd::r_index_phi_inv_intlv> index;
         index.load(inputPath);
-
-        index.locate_fasta_test_running_time(patternFile);
-    }
-    else
-    {
-        std::cout << "### Querying ST colex index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.load(inputPath);
-
-        index.locate_fasta_test_running_time(patternFile);
+        // run locate all occurrence queries
+        index.locate_fasta(patternFile,maxOcc);
     }
 
     return 0;

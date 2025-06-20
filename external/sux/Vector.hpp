@@ -132,6 +132,8 @@ template <typename T, AllocType AT = MALLOC> class Vector : public Expandable {
 
 		out.write((char *)data, _size * sizeof(T));
 
+		w_bytes += _size * sizeof(T);
+
 		return w_bytes;
 	}
 

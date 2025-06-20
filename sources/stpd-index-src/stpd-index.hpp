@@ -10,30 +10,12 @@
 #define STPD_INDEX_HPP_
 
 #include <chrono>
-//#include <future>
-#include <malloc_count.h>
+#include <malloc_count.h> 
 
-// inverse r-index phi function
-#include <r-index_phi_inv.hpp>
-// inverse r-index optimized phi functions
-#include <r-index_phi_inv_sux.hpp>
-#include <r-index_phi_inv_intlv.hpp>
-// inverse compressed phi function
-#include <stpd-index_phi_inv.hpp>
-// bitpacked text oracle
-// #include <bitpacked_text_oracle.hpp>
-// rlz text orcale
-#include <RLZ_DNA.hpp>
-// opti rlz text orcale
-#include <RLZ_DNA_sux.hpp>
-// stpd-array binary search
-#include <stpd_array_binary_search.hpp>
-// stpd-array binary search opt
-#include <stpd_array_binary_search_opt.hpp>
-// stpd-array binary search opt v2
-#include <stpd_array_binary_search_opt_v2.hpp>
-// stpd-array binary search opt v3
-#include <stpd_array_binary_search_opt_v3.hpp>
+#include <r-index_phi_inv_intlv.hpp> // phi function
+#include <RLZ_DNA_sux.hpp> // rlz random access text orcale
+#include <stpd_array_binary_search.hpp> // binary search ds
+#include <stpd_array_binary_search_opt.hpp> // optimized binary search ds
 
 namespace stpd{
 
@@ -41,17 +23,16 @@ template<class STPDArray, class textOracle, class phiFunction>
 class stpd_index{
 
 private:
-	// phi function data structure
-	phiFunction phi;
-	// text oracle data structure
-	textOracle O;
-	// stpd array search data structure
-	STPDArray S;
+
+	phiFunction phi; // phi-function data structure
+	textOracle O; // random access text oracle
+	STPDArray S; // stpd array binary search
 
 public:
-	// empty constructor
-	stpd_index(){}
+	
+	stpd_index(){} // empty constructor
 
+	// standard index constructor
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
 		               const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
 	{
@@ -64,9 +45,9 @@ public:
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 	  	
-	  	std::cout << "Done!" << std::endl;
+	  	std::cout << "Index succesfully built!" << std::endl;
 	}
-
+	// optimized index constructor
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
 		               const std::string &rbwt_filepath, const std::string &pa_filepath,
 		               const std::string &lcs_filepath, size_t refLen)
@@ -77,13 +58,13 @@ public:
 		else{ O.build(text_filepath,1.0,0); }
 		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(text_filepath,sampling_filepath,lcs_filepath,pa_filepath,&O,false); 
-		std::cout << "Step 3) Constructing the phi function..." << std::endl;
+		std::cout << "Step 3) Constructing the phi-function..." << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 	  	
-	  	std::cout << "Done!" << std::endl;
+	  	std::cout << "Index succesfully built!" << std::endl;
 	}
 
-	// build suffixient index by indexing the supermaximal extensions
+	/*
 	void build_colex_pm(const std::string &text_filepath, const std::string &sampling_filepath,
 		                const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
 	{
@@ -96,8 +77,9 @@ public:
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 
-	  	std::cout << "Done!" << std::endl;
+	  	std::cout << "Index succesfully built!" << std::endl;
 	}
+	*/
 	
 	usafe_t store(const std::string &index_filepath)
 	{
@@ -110,7 +92,8 @@ public:
 		usafe_t phi_size = phi.serialize(out);
 		std::cout << "Storing phi data structure, size = " << phi_size << " bytes" << std::endl;
 
-		std::cout << "Index succesfully stored!" << std::endl;
+		std::cout << "## Index succesfully stored!" << std::endl;
+		std::cout << "Total index size = " << O_bytes + S_bytes + phi_size << " bytes" << std::endl;
 		
 		out.close();
 
@@ -128,11 +111,12 @@ public:
 		std::cout << "Loading the phi data structure..." << std::endl;
 		phi.load(in);
 
-		std::cout << "Loading done!" << std::endl;
+		std::cout << "Index succesfully loaded!" << std::endl;
 
 		in.close();
 	}
 
+	// locate all occurrences exponential search
 	std::tuple<std::vector<uint_t>,double,double> 
 						 locate_pattern_exp_search(const std::string &pattern) const
 	{
@@ -197,7 +181,7 @@ public:
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
-
+	/*
 	std::tuple<std::vector<uint_t>,double,double> 
 						 locate_pattern(const std::string pattern) const
 	{
@@ -228,8 +212,21 @@ public:
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
+	*/
 
-	void locate_fasta(const std::string patternFile) const
+	// run locate all occurrence queries on all patterns in a fasta file
+	/*
+		Parameters:
+		- patternFile: FASTA file path containing the patterns
+		- thr: Maximum number of occurrences to report for each pattern
+		Output: A patternFile.occs file containing the positions of the 
+		        patterns in the original text, and some statistics printed 
+		        to the standard output
+
+		Note that the check_occs_correctness function assumes that each pattern 
+		occurs at least once in the text.
+	*/
+	void locate_fasta(const std::string patternFile, usafe_t thr) const
 	{
 		std::ifstream patterns(patternFile);
 		std::ofstream   output(patternFile+".occs");
@@ -237,7 +234,7 @@ public:
 		std::string line, header;
 		usafe_t i=0, c=0;
 		std::tuple<std::vector<uint_t>,double,double> o;
-		double tot_duration = 0, binary_search_duration = 0;
+		double tot_duration = 0;
 
 		malloc_count_reset_peak();
 
@@ -246,22 +243,26 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				if(this->S.is_index_large())
-					o = locate_pattern(line);
-				else
+				//if(this->S.is_index_large())
+				//	o = locate_pattern(line);
+				//else
 					o = locate_pattern_exp_search(line);
 
 				output << header << std::endl;
-				if(std::get<0>(o).size() >= 0) { output << std::get<0>(o).size() << std::endl; }
-				else{ output << "-1 " << std::endl; }
+				if(std::get<0>(o).size() >= 0)
+				{	
+					usafe_t j=0;
+					for(auto& e:std::get<0>(o))
+					{
+						output << e << " ";
+						if(++j > thr-1) break;
+					}
+					output << std::endl;
+				}
 
 				tot_duration += std::get<1>(o);
-				binary_search_duration += std::get<2>(o);
 				c += line.size();
 				tot_occs += std::get<0>(o).size();
-
-				if(not check_occs_correctness(std::get<0>(o),line))
-					exit(1);
 			}
 			else{ header = line; }
 			i++;
@@ -274,23 +275,23 @@ public:
 				     malloc_count_peak() << " bytes" << std::endl
 		          << "Elapsed time while running pattern matching queries = " <<
 				     tot_duration << " sec" << std::endl 
-				  << "Total number of occurrences found = " << tot_occs << std::endl
 		          << "Number of patterns = " << i/2 
 		 		  << ", Total number of characters = " << c << std::endl
+				  << "Total number of occurrences found = " << tot_occs << std::endl
 		          << "Elapsed time per pattern = " <<
 				     (tot_duration/(i/2))*1000000000 << " nanoSec" << std::endl
 		          << "Elapsed time per character = " <<
 				     (tot_duration/(c))*1000000000 << " nanoSec" << std::endl
 		          << "Elapsed time per occurrence = " <<
-				     (tot_duration/(tot_occs))*1000000000 << " nanoSec" << std::endl
-				  << "Elapsed time running binary search on the STPD samples vector = " <<
-				  	 binary_search_duration << " sec" << std::endl
-				  << "Elapsed time running the phi queries = " <<
-				  	 tot_duration-binary_search_duration << " sec" << std::endl
-				  << "Percentage time taken for running the phi queries = " <<
-				     ((tot_duration-binary_search_duration)/tot_duration)*100 << "%" << std::endl;
+				     (tot_duration/(tot_occs))*1000000000 << " nanoSec" << std::endl;
 	}
 
+	// check running time and correctness of locating all occurrences queries
+	/*
+		Parameters:
+		- patternFile: FASTA file path containing the patterns
+		Output: some statistics printed to the standard output
+	*/
 	void locate_fasta_test_running_time(const std::string patternFile) const
 	{
 		std::ifstream patterns(patternFile);
@@ -307,9 +308,9 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				if(this->S.is_index_large())
-					o = locate_pattern(line);
-				else
+				//if(this->S.is_index_large())
+				//	o = locate_pattern(line);
+				//else
 					o = locate_pattern_exp_search(line);
 
 				tot_duration += std::get<1>(o);
@@ -361,7 +362,7 @@ private:
 			uint_t lcs = O.LCS(patt,patt.size()-1,e);
 			if(lcs != patt.size())
 			{
-				std::cerr << "Problem with pattern: " << patt << " and occ " << e << std::endl;
+				std::cerr << "Error detected with pattern: " << patt << " and occ " << e << std::endl;
 				return false;
 			}
 		}
@@ -426,8 +427,7 @@ private:
 		}
 	}
 	
-};
-
-}
+}; // stpd_index
+}  // stpd
 
 #endif

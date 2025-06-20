@@ -8,14 +8,14 @@
 
 void help(){
 
-    std::cout << "build_DNA_index [options]" << std::endl <<
+    std::cout << "build_store_stpd_index [options]" << std::endl <<
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
-    "-i <arg>    Input files base path. (REQUIRED)" << std::endl <<
-    "-v <arg>    Index variant: (colex-|colex+-). (REQUIRED)" << std::endl <<
-    "-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl <<
-    "-l <arg>    Reference sequence length (if known). (Def. None)" << std::endl <<
-    "-o <arg>    Output index filename. (REQUIRED)" << std::endl;
+    "-i <arg>    Input text file path. (REQUIRED)" << std::endl <<
+    //"-v <arg>    Index variant: (colex-|colex+-). (REQUIRED)" << std::endl <<
+    //"-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl <<
+    "-l <arg>    RLZ reference sequence length (if known). (Def. None)" << std::endl <<
+    "-o <arg>    Output index file path. (REQUIRED)" << std::endl;
     exit(0);
 } 
 
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    std::string inputPath, outputPath, indexVariant, optVariant;
+    std::string inputPath, outputPath; // indexVariant, optVariant;
     bool verbose = false;
     size_t refLen = 0;
 
@@ -45,12 +45,12 @@ int main(int argc, char* argv[])
             case 'o':
                 outputPath = std::string(optarg);
             break;
-            case 'O':
-                optVariant = std::string(optarg);
-            break;
-            case 'v':
-                indexVariant = std::string(optarg);
-            break;
+            //case 'O':
+            //    optVariant = std::string(optarg);
+            //break;
+            //case 'v':
+            //    indexVariant = std::string(optarg);
+            //break;
             case 'l':
                 refLen = std::atoll(optarg);
             break;
@@ -61,63 +61,35 @@ int main(int argc, char* argv[])
     }
 
     if(inputPath == "" or outputPath == ""){ help(); }
-    
-    if(indexVariant == "colex-" and optVariant.empty())
-    {
-        std::cout << "### Constructing the ST colex- index for " 
-                  << inputPath << std::endl;
 
-        stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa",refLen);
-        index.store(outputPath);
+    std::cout << "### Constructing and storing the Suffix Tree path decomposition (STDP)" 
+              << " index for " << inputPath << std::endl;
+
+    { // compute the path decomposition
+        std::string command = "./sources/path-decomp-src/stpd_small -i " + inputPath + " -o " + inputPath + ".colex_m -c -P"; 
+        int result = std::system(command.c_str());
+        if (result != 0) {
+            std::cerr << "Error while computing the path decomposition..." << std::endl;
+            exit(1);
+        }
     }
-    else if(indexVariant == "colex+-" and optVariant.empty())
-    {
-        std::cout << "### Constructing the ST colex+- index for " 
-                  << inputPath << std::endl;
 
-        stpd::stpd_index<stpd::stpd_array_binary_search<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.build_colex_pm(inputPath,inputPath+".colex_pm",inputPath+".rbwt",
-                             inputPath+".pa",refLen);
-        index.store(outputPath);
-    }
-    else if(indexVariant == "colex-" and optVariant == "v1")
-    {
-        std::cout << "### Constructing the opt ST colex- index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt<RLZ_DNA<>>,
-                         RLZ_DNA<>,stpd::r_index_phi_inv<>> index;
-        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa",inputPath+".lcs",refLen);
-        index.store(outputPath);
-    }
-    else if(indexVariant == "colex-" and optVariant == "v2")
-    {
-        std::cout << "### Constructing the opt v2 ST colex- index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v2<RLZ_DNA_sux<>>,
-                         RLZ_DNA_sux<>,stpd::r_index_phi_inv_sux> index;
-        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                            inputPath+".pa",inputPath+".lcs",refLen);
-        index.store(outputPath);
-    }
-    else if(indexVariant == "colex-" and optVariant == "v3")
-    {
-        std::cout << "### Constructing the opt v3 ST colex- index for " 
-                  << inputPath << std::endl;
-
-        stpd::stpd_index<stpd::stpd_array_binary_search_opt_v3<>,
+    { // compute the index
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt<>,
                          RLZ_DNA_sux<>,stpd::r_index_phi_inv_intlv> index;
         index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
                             inputPath+".pa",inputPath+".lcs",refLen);
+        // store the index
         index.store(outputPath);
     }
-    else{ std::cerr << "Not yet implemented..." << std::endl; exit(1); }
+
+    { // delete temporary files
+        std::remove(std::string(inputPath+".colex_m").c_str());
+        std::remove(std::string(inputPath+".rbwt").c_str());
+        std::remove(std::string(inputPath+".pa").c_str());
+        std::remove(std::string(inputPath+".lcs").c_str());
+        std::remove(std::string(inputPath+".rlz").c_str());
+    }
 
     return 0;
 }
