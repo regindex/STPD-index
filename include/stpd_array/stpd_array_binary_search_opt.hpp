@@ -51,8 +51,8 @@ public:
 		    this->log_l = bitsize(this->len);
 
 		    if(verbose)
-		    	std::cout << "STPD samples width = " << log_n << " bits per entry" << std::endl
-		                  << "LCS values width = " << log_l << " bits per entry" << std::endl;
+		    	std::cout << "		- STPD samples width = " << log_n << " bits per entry" << std::endl
+		                  << "		- LCS values width = " << log_l << " bits per entry" << std::endl;
 		}
 
 		// compute all STPD sample - lcs values pairs
@@ -93,9 +93,9 @@ public:
 
 		if(verbose) 
 		{
-			std::cout << "STPD array size = " << this->S <<
-			std::endl << "Text size = " << this->N <<
-			std::endl << "N/S = " << double(this->N)/S << std::endl;
+			std::cout << "		- STPD array size = " << this->S <<
+			std::endl << "		- Text size = " << this->N <<
+			std::endl << "		- N/S = " << double(this->N)/S << std::endl;
 		}
 
 		{ // Construct Elias-Fano binary search data structure

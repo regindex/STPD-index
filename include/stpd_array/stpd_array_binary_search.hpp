@@ -38,7 +38,7 @@ public:
 		    int_t log_n = bitsize(this->N);
 		    this->stpd = sdsl::int_vector<>(S,0,log_n);
 		    if(verbose)
-		    	std::cout << "STPD array width = " << log_n << " bits per entry"
+		    	std::cout << "		- STPD array width = " << log_n << " bits per entry"
 		     << std::endl;
 		}
 	    usafe_t a = 0, i = 0; 
@@ -62,9 +62,9 @@ public:
 	  	} 
 		if(verbose)
 		{
-			std::cout << "STPD array size = " << this->S <<
-			std::endl << "Text size = " << this->N <<
-			std::endl << "N/S = " << double(this->N)/S << std::endl;
+			std::cout << "		- STPD array size = " << this->S <<
+			std::endl << "		- Text size = " << this->N <<
+			std::endl << "		- N/S = " << double(this->N)/S << std::endl;
 		}
 	}
 

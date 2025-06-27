@@ -36,32 +36,32 @@ public:
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
 		               const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
 	{
-		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
-		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
+		std::cout << "[INFO] Constructing the STPD-index using the path decomposition in " << sampling_filepath << "\n" << std::endl;
+		std::cout << "[STEP 1] Constructing the random-access text oracle..." << std::endl;
 		if(refLen > 0){ O.build(text_filepath,refLen); }
 		else{ O.build(text_filepath,1.0,0); }
-		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
+		std::cout << "[STEP 2] Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(sampling_filepath,&O,false); 
-		std::cout << "Step 3) Constructing the phi function..." << std::endl;
+		std::cout << "[STEP 3] Constructing the phi function..." << "\n" << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 	  	
-	  	std::cout << "Index succesfully built!" << std::endl;
+	  	std::cout << "[DONE] Index successfully built!" << "\n" << std::endl;
 	}
 	// optimized index constructor
 	void build_colex_m(const std::string &text_filepath, const std::string &sampling_filepath,
 		               const std::string &rbwt_filepath, const std::string &pa_filepath,
 		               const std::string &lcs_filepath, size_t refLen)
 	{
-		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
-		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
+		std::cout << "[INFO] Constructing the STPD-index using the path decomposition in " << sampling_filepath << "\n" << std::endl;
+		std::cout << "[STEP 1] Constructing the random-access text oracle..." << std::endl;
 		if(refLen > 0){ O.build(text_filepath,refLen); }
 		else{ O.build(text_filepath,1.0,0); }
-		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
+		std::cout << "[STEP 2] Constructing the STPD-array binary search data structure..." << std::endl;
 		S.build(text_filepath,sampling_filepath,lcs_filepath,pa_filepath,&O,false); 
-		std::cout << "Step 3) Constructing the phi-function..." << std::endl;
+		std::cout << "[STEP 3] Constructing the phi function..." << "\n" << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 	  	
-	  	std::cout << "Index succesfully built!" << std::endl;
+	  	std::cout << "[DONE] Index successfully built!" << "\n" << std::endl;
 	}
 
 	/*
@@ -77,23 +77,24 @@ public:
 		std::cout << "Step 3) Constructing the phi function..." << std::endl;
 	  	phi.build(rbwt_filepath,pa_filepath);
 
-	  	std::cout << "Index succesfully built!" << std::endl;
+	  	std::cout << "Index successfully built!" << std::endl;
 	}
 	*/
 	
 	usafe_t store(const std::string &index_filepath)
 	{
 		std::ofstream out(index_filepath);
+		std::cout << "[INFO] Writing components to disk:" << std::endl;
 
 		usafe_t O_bytes = O.serialize(out);
-		std::cout << "Storing random-access data structure, size = " << O_bytes << " bytes" << std::endl;
+		std::cout << "		- Random-access data structure size = " << O_bytes << " bytes" << std::endl;
 		usafe_t S_bytes = S.serialize(out);
-		std::cout << "Storing STPD-array data structure, size = " << S_bytes << " bytes" << std::endl;
+		std::cout << "		- STPD-array data structure size = " << S_bytes << " bytes" << std::endl;
 		usafe_t phi_size = phi.serialize(out);
-		std::cout << "Storing phi data structure, size = " << phi_size << " bytes" << std::endl;
+		std::cout << "		- Phi-function data structure size = " << phi_size << " bytes" << "\n" << std::endl;
 
-		std::cout << "## Index succesfully stored!" << std::endl;
-		std::cout << "Total index size = " << O_bytes + S_bytes + phi_size << " bytes" << std::endl;
+		std::cout << "[DONE] Index successfully stored!" << std::endl;
+		std::cout << "		→ Total index size in disk = " << O_bytes + S_bytes + phi_size << " bytes" << "\n" << std::endl;
 		
 		out.close();
 
@@ -103,15 +104,16 @@ public:
 	void load(const std::string &index_filepath)
 	{
 		std::ifstream in(index_filepath);
+		std::cout << "[INFO] Loading components to disk:" << std::endl;
 
-		std::cout << "Loading the random-access text oracle..." << std::endl;
+		std::cout << "		- Random-access text oracle..." << std::endl;
 		O.load(in);
-		std::cout << "Loading the STPD-array data structure..." << std::endl;
+		std::cout << "		- STPD-array data structure..." << std::endl;
 		S.load(in,&(this->O));
-		std::cout << "Loading the phi data structure..." << std::endl;
+		std::cout << "		- Phi-function data structure..." << "\n" << std::endl;
 		phi.load(in);
 
-		std::cout << "Index succesfully loaded!" << std::endl;
+		std::cout << "[DONE] Index successfully loaded!" << "\n" << std::endl;
 
 		in.close();
 	}

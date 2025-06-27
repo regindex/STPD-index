@@ -62,11 +62,12 @@ int main(int argc, char* argv[])
 
     if(inputPath == "" or outputPath == ""){ help(); }
 
-    std::cout << "### Constructing and storing the Suffix Tree path decomposition (STDP)" 
-              << " index for " << inputPath << std::endl;
+    std::cout << "\n[INFO] Constructing and storing the Suffix Tree path decomposition index (STDP-index)" 
+              << " for " << inputPath << "\n" << std::endl;
 
     { // compute the path decomposition
-        std::string command = "./sources/path-decomp-src/stpd_small -i " + inputPath + " -o " + inputPath + ".colex_m -c -P"; 
+        std::cout << "[STEP 0] Computing the ST path decomposition..." << "\n" << std::endl;
+        std::string command = "./build/sources/path-decomp-src/stpd_small -i " + inputPath + " -o " + inputPath + ".colex_m -c -P"; 
         int result = std::system(command.c_str());
         if (result != 0) {
             std::cerr << "Error while computing the path decomposition..." << std::endl;
