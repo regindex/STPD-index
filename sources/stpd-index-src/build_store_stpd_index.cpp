@@ -13,6 +13,7 @@ void help(){
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input text file path. (REQUIRED)" << std::endl <<
     //"-v <arg>    Index variant: (colex-|colex+-). (REQUIRED)" << std::endl <<
+    "-p <arg>    Phi-function data structure: (r-index|move). (REQUIRED)" << std::endl <<
     //"-O <arg>    Enable DNA index optimizations: (v1|v2|v3). (Def. False)" << std::endl <<
     "-l <arg>    RLZ reference sequence length (if known). (Def. None)" << std::endl <<
     "-o <arg>    Output index file path. (REQUIRED)" << std::endl;
@@ -28,12 +29,12 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    std::string inputPath, outputPath; // indexVariant, optVariant;
+    std::string inputPath, outputPath, phiDS; // indexVariant, optVariant;
     bool verbose = false;
     size_t refLen = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:o:v:O:l:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:o:v:O:l:p:")) != -1)
     {
         switch (opt){
             case 'h':
@@ -44,6 +45,9 @@ int main(int argc, char* argv[])
             break;
             case 'o':
                 outputPath = std::string(optarg);
+            break;
+            case 'p':
+                phiDS = std::string(optarg);
             break;
             //case 'O':
             //    optVariant = std::string(optarg);
@@ -60,7 +64,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    if(inputPath == "" or outputPath == ""){ help(); }
+    if(inputPath == "" or outputPath == "" or phiDS == ""){ help(); }
 
     std::cout << "\n[INFO] Constructing and storing the Suffix Tree path decomposition index (STDP-index)" 
               << " for " << inputPath << "\n" << std::endl;
@@ -75,6 +79,7 @@ int main(int argc, char* argv[])
         }
     }
 
+    if(phiDS == "r-index")
     { // compute the index
         stpd::stpd_index<stpd::stpd_array_binary_search_opt<>,
                          RLZ_DNA_sux<>,stpd::r_index_phi_inv_intlv> index;
@@ -83,6 +88,17 @@ int main(int argc, char* argv[])
         // store the index
         index.store(outputPath);
     }
+    else if(phiDS == "move")
+    {
+        std::cout << "Build move!" << std::endl;
+        stpd::stpd_index<stpd::stpd_array_binary_search_opt<>,
+                         RLZ_DNA_sux<>,stpd::move_r_phi_inv> index;
+        index.build_colex_m(inputPath,inputPath+".colex_m",inputPath+".rbwt",
+                            inputPath+".pa",inputPath+".lcs",refLen);
+        // store the index
+        index.store(outputPath);
+    }
+    else{ std::cerr << "Please, select a valid phi-function data structure!" << std::endl; exit(1); }
 
     { // delete temporary files
         std::remove(std::string(inputPath+".colex_m").c_str());

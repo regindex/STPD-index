@@ -12,7 +12,8 @@
 #include <chrono>
 #include <malloc_count.h> 
 
-#include <r-index_phi_inv_intlv.hpp> // phi function
+#include <r-index_phi_inv_intlv.hpp> // r-index phi function
+#include <move-r_phi_inv.hpp> // move phi function
 #include <RLZ_DNA_sux.hpp> // rlz random access text orcale
 #include <stpd_array_binary_search.hpp> // binary search ds
 #include <stpd_array_binary_search_opt.hpp> // optimized binary search ds
@@ -120,7 +121,7 @@ public:
 
 	// locate all occurrences exponential search
 	std::tuple<std::vector<uint_t>,double,double> 
-						 locate_pattern_exp_search(const std::string &pattern) const
+						 locate_pattern_exp_search(const std::string &pattern)
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
@@ -145,13 +146,15 @@ public:
 				std::chrono::high_resolution_clock::now() - start;
 
 		usafe_t high = 2, low = 0;
+		phi.init_phi(uint_t(i_occ.second));
 		std::vector<uint_t> res{uint_t(i_occ.second)};
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
-				i_occ.second = phi.phi_safe(i_occ.second);
+				i_occ.second = phi.phi_next();
+				
 				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
@@ -228,7 +231,7 @@ public:
 		Note that the check_occs_correctness function assumes that each pattern 
 		occurs at least once in the text.
 	*/
-	void locate_fasta(const std::string patternFile, usafe_t thr) const
+	void locate_fasta(const std::string patternFile, usafe_t thr) 
 	{
 		std::ifstream patterns(patternFile);
 		std::ofstream   output(patternFile+".occs");
@@ -294,7 +297,7 @@ public:
 		- patternFile: FASTA file path containing the patterns
 		Output: some statistics printed to the standard output
 	*/
-	void locate_fasta_test_running_time(const std::string patternFile) const
+	void locate_fasta_test_running_time(const std::string patternFile) 
 	{
 		std::ifstream patterns(patternFile);
 
@@ -392,7 +395,7 @@ private:
 			mid = (low+high)/2;
 		}
 	}
-
+	/*
 	void lower_sample(const std::string& pattern, int_t& occ, bool_t& mismatch_found) const
 	{
 		usafe_t i = 1, m = pattern.size();
@@ -428,7 +431,7 @@ private:
 			occ = occ + f;
 		}
 	}
-	
+	*/
 }; // stpd_index
 }  // stpd
 

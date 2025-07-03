@@ -4,6 +4,9 @@ target_include_directories(common PUBLIC common)
 add_subdirectory(bitvectors)
 target_include_directories(bitvectors PUBLIC bitvectors)
 
+add_subdirectory(move_ds)
+target_include_directories(move_ds PUBLIC move_ds)
+
 add_subdirectory(phi_functions)
 target_include_directories(phi_functions PUBLIC phi_functions)
 

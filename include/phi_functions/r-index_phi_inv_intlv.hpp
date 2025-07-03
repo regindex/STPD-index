@@ -64,6 +64,18 @@ public:
 		sa.close();
 	}
 
+	void init_phi(const uint_t idx)
+	{
+		curr_occ = idx;
+	}  
+
+	int_t phi_next()
+	{
+		curr_occ = phi_safe(curr_occ);
+
+		return curr_occ;
+	}
+
 	int_t phi_safe(const uint_t idx) const
 	{
 		if(idx != L)
@@ -101,6 +113,8 @@ public:
 	}
 
 private:
+
+	int_t curr_occ;
 
 	sux::bits::InterleavedEliasFano<> LFsamples; // last - first samples dictionary
 	uint_t L; // last SA entry
