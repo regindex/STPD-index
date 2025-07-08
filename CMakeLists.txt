@@ -50,3 +50,8 @@ add_subdirectory(external)
 # ------------------------------------------------------------------------------
 add_subdirectory(include)
 add_subdirectory(sources)
+
+# Configure competitors
+# ------------------------------------------------------------------------------
+add_subdirectory(experiments/pa-index)
+add_subdirectory(experiments/prefix-tree)

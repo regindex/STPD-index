@@ -78,7 +78,12 @@ if(NOT gsacak_POPULATED)
   # add_subdirectory(${gsacak_SOURCE_DIR} ${gsacak_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-######
+##########################################################################
 
 add_subdirectory(sux)
 target_include_directories(sux PUBLIC sux)
+
+##########################################################################
+
+#add_subdirectory(move_r)
+#target_include_directories(move_r PUBLIC move_r)

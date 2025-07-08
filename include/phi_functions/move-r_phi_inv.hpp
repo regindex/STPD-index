@@ -3,7 +3,8 @@
 
 //#include <elias_fano_sux.hpp>
 //#include <sdsl/int_vector.hpp>
-#include <move-r.hpp>
+#include <move-r_large.hpp>
+//#include <move-r.hpp>
 
 namespace stpd{
 
@@ -133,7 +134,8 @@ private:
 		usafe_t c; // absolute position
 	};
 	
-	move_r<> move;
+	move_r_large<> move;
+	//move_r<> move;
 	query_environment qenv;
 };
 }
