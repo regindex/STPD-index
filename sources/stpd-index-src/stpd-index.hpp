@@ -148,6 +148,7 @@ public:
 		usafe_t high = 2, low = 0;
 		phi.init_phi(uint_t(i_occ.second));
 		std::vector<uint_t> res{uint_t(i_occ.second)};
+		//std::cout << "** " << i_occ.second << std::endl;
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
@@ -168,6 +169,7 @@ public:
 				}
 
 				res.push_back(i_occ.second);
+				//std::cout << "** " << i_occ.second << std::endl;
 			}
 
 			usafe_t f = O.LCS(pattern,m-1,res[high-1]);
@@ -313,6 +315,7 @@ public:
 		{
 			if(i%2 != 0)
 			{
+				//std::cout << line << std::endl;
 				//if(this->S.is_index_large())
 				//	o = locate_pattern(line);
 				//else
@@ -325,6 +328,7 @@ public:
 
 				if(not check_occs_correctness(std::get<0>(o),line))
 					exit(1);
+				//std::cout << "-->" << std::get<0>(o).size() << std::endl;
 			}
 			else{ header = line; }
 			i++;

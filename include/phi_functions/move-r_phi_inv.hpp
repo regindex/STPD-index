@@ -82,18 +82,65 @@ public:
 		sa.close();
 
 		move.build(intervals,bwt_length-1,r,r_);
+		/*
+		init_phi2(13);
+		usafe_t res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+		res = phi_next2();
+		std::cout << "######res = " << res << std::endl;
+
+		exit(1);
+		*/
 	}
 
-	void init_phi(uint_t idx)
+	void init_phi_(uint_t idx)
 	{
 		move.init_move(idx,qenv.b,qenv.o);
 	}
 
-	int_t phi_next()
+	void init_phi(uint_t idx)
+	{
+		move.init_move2(idx,qenv2.b,qenv2.o,qenv2.o_);
+	}
+
+	int_t phi_next_()
 	{ 
 		move.move(qenv.b,qenv.o,qenv.c); // qenv.b: block id, qenv.o: offset, qenv.c: absolute pos
 
 		return qenv.c;
+	}
+
+	int_t phi_next()
+	{ 
+		move.move2(qenv2.b,qenv2.o,qenv2.o_,qenv2.c); // qenv.b: block id, qenv.o: offset, qenv.c: absolute pos
+
+		return qenv2.c;
 	}
 
 	int_t phi_unsafe(const uint_t idx) const
@@ -133,10 +180,20 @@ private:
 		usafe_t o; // block offset
 		usafe_t c; // absolute position
 	};
+
+	class query_environment2
+	{
+		public:
+		usafe_t b; // pointed block index
+		usafe_t o; // pointed block offset
+		usafe_t o_; // current block offset
+		usafe_t c; // absolute position
+	};
 	
 	move_r_large<> move;
 	//move_r<> move;
 	query_environment qenv;
+	query_environment2 qenv2;
 };
 }
 

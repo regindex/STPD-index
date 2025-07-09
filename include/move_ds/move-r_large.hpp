@@ -34,18 +34,18 @@ public:
 	void build(const std::vector<pair_t>& intervals, usafe_t n, usafe_t r, usafe_t r_)
 	{
 		std::vector<uint64_t> borders(r,0);
-		block_begs.width(n_width);
-		block_begs.resize(r);
+		//block_begs.width(n_width);
+		//block_begs.resize(r);
 
 		usafe_t i, sum = 0;
-		block_begs[0] = sum;
+		//block_begs[0] = sum;
 		for(i=1;i<intervals.size();++i)
 		{
 			//std::cout << "i: " << i << std::endl;
 			sum += intervals[i-1].second;
-			std::cout << "sum: " << sum << std::endl;
+			//std::cout << "sum: " << sum << std::endl;
 			borders[i] = sum;
-			block_begs[i] = sum;
+			//block_begs[i] = sum;
 		}
 		//borders[r] = n;
 		
@@ -62,23 +62,24 @@ public:
 		std::cout << "widths = " << int(n_width) << "," << int(r_width) << "," << int(r__width) << std::endl;
 
 		// 64 bits should be enough since phi runs are usually never larger than few milions positions
-		if(r_width+r__width > 64)
+		if(n_width+r_width+r__width > 128)
 		{
-			std::cerr << "Blocks cannot be represented with 64 bits... exiting." << std::endl;
+			std::cerr << "Blocks cannot be represented with 128 bits... exiting." << std::endl;
 			exit(1);
 		}
-		blocks.width(r_width+r__width);
-		blocks.resize(r);
+		blocks.width(n_width+r_width+r__width);
+		blocks.resize(r+1);
 
 		for(i=0;i<intervals.size();++i)
 		{
 			usafe_t rank   = block_borders.rank1(intervals[i].first+1)-1;
 			usafe_t select = block_borders.select1(rank);
-			usafe_t bp_val = ((0ULL | rank) << r__width) | (intervals[i].first - select);
+			__uint128_t bp_val = ((((0ULL | rank) << r__width) | (intervals[i].first - select)) << n_width) | borders[i];
 			//std::cout << "interval (" << intervals[i].first << "," << intervals[i].first + intervals[i].second - 1 << ") -> ";
 			//std::cout << rank << "," << intervals[i].first - select << " - " << bp_val << std::endl;
 			blocks[i] = bp_val;
 		}
+		blocks[r] = n;
 
 		return;
 	}
@@ -88,38 +89,83 @@ public:
 		b = block_borders.rank1(i+1)-1;
 		o = i - block_borders.select1(b);
 
-		//std::cout << "init-> " << qenv.b << "," << qenv.o << std::endl;
+		std::cout << "init-> " << b << "," << o << std::endl;
+	}
+
+	void init_move2(usafe_t i,usafe_t& b,usafe_t& o,usafe_t& o_)
+	{
+		b = block_borders.rank1(i+1)-1;
+		o_ = i - block_borders.select1(b);
+
+		//std::cout << "init-> " << b << "," << o << std::endl;
+
+		__uint128_t bv_val = blocks[b];
+		bv_val >>= n_width;
+		o = bv_val & ((1ULL << r__width)-1);
+		b = bv_val >> r__width;
+
+		//std::cout << "init-> " << b << "," << o << "," << o_ << std::endl;
 	}
 
 	inline void move(usafe_t& b_,usafe_t& o_,usafe_t& c_)
 	{
-		usafe_t bv_val = blocks[b_];
-		usafe_t b = bv_val >> r__width;
+		
+		std::cout << "		entra: " << b_ << " " << o_ << " " << c_ << std::endl;
+		__uint128_t bv_val = blocks[b_];
+		std::cout << "bval= " << bv_val << std::endl;
+		//usafe_t c = bv_val & ((1ULL << n_width)-1);
+		bv_val >>= n_width;
 		usafe_t o = bv_val & ((1ULL << r__width)-1);
+		usafe_t b = bv_val >> r__width;
+		
+		std::cout << "[ " << b << " , " << o << std::endl;
 
-		usafe_t current = block_begs[b] + o;
-		/* Below it follows the branchless version of this cycle */
-		while(o_ > 0)
+		bv_val = blocks[b];
+		usafe_t c = bv_val & ((1ULL << n_width)-1);
+		c_ = c + o + o_;
+		std::cout << "c_ = " << c_ << std::endl;
+
+		__uint128_t next_bv_val = blocks[++b];
+		usafe_t next = next_bv_val & ((1ULL << n_width)-1);
+		std::cout << "next = " << next << std::endl;
+		while(next <= c_) 
 		{
-			usafe_t next = block_begs[b+1];
-			if((next - current) <= o_)
-			{
-				o_ -= (next - current);
-				o = 0;
-				b++;
-				current = next;
-			}
-			else
-			{
-				o += o_;
-				current += o_;
-				o_ = 0;
-			}
+			c = next;
+			next_bv_val = blocks[++b];
+			next = next_bv_val & ((1ULL << n_width)-1);
 		}
 
-		b_ = b;
-		o_ = o;
-		c_ = current;
+		b_ = b - 1;
+		o_ = c_ - c;
+		std::cout << "-- " << b_ << " " << o_ << std::endl;
+		std::cout << "esce" << std::endl;
+	}
+
+	inline void move2(usafe_t& b,usafe_t& o,usafe_t& o_,usafe_t& c)
+	{
+		__uint128_t bv_val = blocks[b];
+		usafe_t c_ = bv_val & ((1ULL << n_width)-1);
+		c = c_ + o + o_;
+		//std::cout << "c = " << c << std::endl;
+
+		__uint128_t next_bv_val = blocks[++b];
+		usafe_t next = next_bv_val & ((1ULL << n_width)-1);
+		//std::cout << "next = " << next << std::endl;
+
+		while(next <= c) 
+		{
+			c_ = next;
+			bv_val = next_bv_val;
+			next_bv_val = blocks[++b];
+			next = next_bv_val & ((1ULL << n_width)-1);
+		}
+		//b_ = b - 1;
+		o_ = c - c_;
+		bv_val >>= n_width;
+		o = bv_val & ((1ULL << r__width)-1);
+		b = bv_val >> r__width;
+
+		//std::cout << b << "," << o << "," << o_ << std::endl;
 	}
 
 	/*
@@ -185,7 +231,7 @@ public:
 		in.read((char*)&r__width, sizeof(r__width));
 		block_borders.load(in);
 		blocks.load(in);
-		block_begs.load(in);
+		//block_begs.load(in);
 	}
 
 	uint_t serialize(std::ostream& out)
@@ -200,7 +246,7 @@ public:
 
 		w_bytes += block_borders.serialize(out);
 		w_bytes += blocks.serialize(out);
-		w_bytes += block_begs.serialize(out);
+		//w_bytes += block_begs.serialize(out);
 
 		return w_bytes;
 	}
@@ -218,7 +264,7 @@ private:
 	//move_r<> move;
 	bitvector block_borders;
 	bp_vector blocks;
-	bp_vector block_begs;
+	//bp_vector block_begs;
 	uint8_t n_width, r_width, r__width;
 	//query_environment qenv;
 };
