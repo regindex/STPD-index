@@ -3,9 +3,11 @@
 
 #include <elias_fano_sux.hpp>
 #include <sdsl/int_vector.hpp>
+#include "bitpacked_vector.hpp"
 
 using pair_t = std::pair<uint_t, uint_t>;
 
+/*
 std::string uint128_to_string(__uint128_t value)
 {
     if (value == 0) return "0";
@@ -21,6 +23,7 @@ std::string uint128_to_string(__uint128_t value)
 std::ostream& operator<<(std::ostream& os, __uint128_t value) {
     return os << uint128_to_string(value);
 }
+*/
 
 namespace stpd{
 
@@ -58,8 +61,11 @@ public:
 		n_width = 64 - __builtin_clzll(n);
 		r_width = 64 - __builtin_clzll(r);
 		r__width = 64 - __builtin_clzll(r_);
+		n_width = 30;
+		r_width = 25;
+		r__width = 19;
 
-		std::cout << "widths = " << int(n_width) << "," << int(r_width) << "," << int(r__width) << std::endl;
+		//std::cout << "widths = " << int(n_width) << "," << int(r_width) << "," << int(r__width) << std::endl;
 
 		// 64 bits should be enough since phi runs are usually never larger than few milions positions
 		if(n_width+r_width+r__width > 128)
@@ -68,24 +74,41 @@ public:
 			exit(1);
 		}
 		blocks.width(n_width+r_width+r__width);
-		blocks.resize(r+1);
+		blocks.resize_aligned(r+1);
 
 		for(i=0;i<intervals.size();++i)
 		{
 			usafe_t rank   = block_borders.rank1(intervals[i].first+1)-1;
 			usafe_t select = block_borders.select1(rank);
-			__uint128_t bp_val = ((((0ULL | rank) << r__width) | (intervals[i].first - select)) << n_width) | borders[i];
+			__uint128_t bp_val = 0;
+			bp_val = ((((bp_val | rank) << r__width) | (intervals[i].first - select)) << n_width) | borders[i];
 			//std::cout << "interval (" << intervals[i].first << "," << intervals[i].first + intervals[i].second - 1 << ") -> ";
-			//std::cout << rank << "," << intervals[i].first - select << " - " << bp_val << std::endl;
-			blocks[i] = bp_val;
+			//std::cout << rank << "," << intervals[i].first - select << "," << borders[i] << " - " << bp_val << std::endl;
+			//blocks[i] = bp_val;
+			blocks.set_aligned(i,bp_val);
+			//break;
 		}
-		blocks[r] = n;
+		//blocks[r] = n;
+		blocks.set_aligned(r,__uint128_t(n));
+
+		/*
+		//__uint128_t bp_val = blocks[0];
+		__uint128_t bp_val = blocks.get_aligned(0);
+		std::cout << "che esce= " << bp_val << std::endl;
+		usafe_t c = bp_val & ((1ULL << n_width)-1);
+		bp_val >>= n_width;
+		usafe_t o = bp_val & ((1ULL << r__width)-1);
+		usafe_t b = bp_val >> r__width;
+		std::cout << b << " " << o << " " << c << std::endl;
+		exit(1);
+		*/
 
 		return;
 	}
 
 	void init_move(usafe_t i,usafe_t& b,usafe_t& o)
 	{
+		std::cout << "widths = " <<  int(n_width) << " " << int(r_width) << " " << int(r__width) << std::endl;
 		b = block_borders.rank1(i+1)-1;
 		o = i - block_borders.select1(b);
 
@@ -99,7 +122,7 @@ public:
 
 		//std::cout << "init-> " << b << "," << o << std::endl;
 
-		__uint128_t bv_val = blocks[b];
+		__uint128_t bv_val = blocks.get_aligned(b); //__uint128_t bv_val = blocks[b];
 		bv_val >>= n_width;
 		o = bv_val & ((1ULL << r__width)-1);
 		b = bv_val >> r__width;
@@ -111,7 +134,7 @@ public:
 	{
 		
 		std::cout << "		entra: " << b_ << " " << o_ << " " << c_ << std::endl;
-		__uint128_t bv_val = blocks[b_];
+		__uint128_t bv_val = blocks.get_aligned(b_); //__uint128_t bv_val = blocks[b_];
 		std::cout << "bval= " << bv_val << std::endl;
 		//usafe_t c = bv_val & ((1ULL << n_width)-1);
 		bv_val >>= n_width;
@@ -120,35 +143,35 @@ public:
 		
 		std::cout << "[ " << b << " , " << o << std::endl;
 
-		bv_val = blocks[b];
+		bv_val = blocks.get_aligned(b); //bv_val = blocks[b];
 		usafe_t c = bv_val & ((1ULL << n_width)-1);
 		c_ = c + o + o_;
 		std::cout << "c_ = " << c_ << std::endl;
 
-		__uint128_t next_bv_val = blocks[++b];
+		__uint128_t next_bv_val = blocks.get_aligned(++b); // __uint128_t next_bv_val = blocks[++b];
 		usafe_t next = next_bv_val & ((1ULL << n_width)-1);
 		std::cout << "next = " << next << std::endl;
 		while(next <= c_) 
 		{
 			c = next;
-			next_bv_val = blocks[++b];
+			next_bv_val = blocks.get_aligned(++b); //next_bv_val = blocks[++b];
 			next = next_bv_val & ((1ULL << n_width)-1);
 		}
 
 		b_ = b - 1;
 		o_ = c_ - c;
 		std::cout << "-- " << b_ << " " << o_ << std::endl;
-		std::cout << "esce" << std::endl;
+		std::cout << "risultato: " << c_ <<  std::endl;
 	}
 
 	inline void move2(usafe_t& b,usafe_t& o,usafe_t& o_,usafe_t& c)
 	{
-		__uint128_t bv_val = blocks[b];
+		__uint128_t bv_val = blocks.get_aligned(b); //__uint128_t bv_val = blocks[b];
 		usafe_t c_ = bv_val & ((1ULL << n_width)-1);
 		c = c_ + o + o_;
-		//std::cout << "c = " << c << std::endl;
+		////std::cout << "c = " << c << std::endl;
 
-		__uint128_t next_bv_val = blocks[++b];
+		__uint128_t next_bv_val = blocks.get_aligned(++b); // __uint128_t next_bv_val = blocks[++b];
 		usafe_t next = next_bv_val & ((1ULL << n_width)-1);
 		//std::cout << "next = " << next << std::endl;
 
@@ -156,7 +179,7 @@ public:
 		{
 			c_ = next;
 			bv_val = next_bv_val;
-			next_bv_val = blocks[++b];
+			next_bv_val = blocks.get_aligned(++b); //next_bv_val = blocks[++b];
 			next = next_bv_val & ((1ULL << n_width)-1);
 		}
 		//b_ = b - 1;
@@ -263,7 +286,8 @@ private:
 	
 	//move_r<> move;
 	bitvector block_borders;
-	bp_vector blocks;
+	bp_vector blocks_;
+	bitpacked_vector blocks;
 	//bp_vector block_begs;
 	uint8_t n_width, r_width, r__width;
 	//query_environment qenv;

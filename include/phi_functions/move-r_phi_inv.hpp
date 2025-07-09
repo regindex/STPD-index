@@ -121,6 +121,7 @@ public:
 
 	void init_phi_(uint_t idx)
 	{
+		//std::cout << "init-> " << idx << std::endl;
 		move.init_move(idx,qenv.b,qenv.o);
 	}
 

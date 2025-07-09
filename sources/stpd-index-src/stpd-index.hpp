@@ -148,14 +148,19 @@ public:
 		usafe_t high = 2, low = 0;
 		phi.init_phi(uint_t(i_occ.second));
 		std::vector<uint_t> res{uint_t(i_occ.second)};
-		//std::cout << "** " << i_occ.second << std::endl;
+		////std::cout << "** " << i_occ.second << std::endl;
+		//i_occ.second = phi.phi_next();
+		//std::cout << "*1 " << i_occ.second << std::endl;
+
+		//exit(1);
 		while(true)
 		{
 			usafe_t phi_steps = high/2;
 			while(phi_steps-- > 0)
 			{
 				i_occ.second = phi.phi_next();
-				
+				////std::cout << "** " << i_occ.second << std::endl;
+				/*
 				if(i_occ.second == -1)
 				{
 					high -= phi_steps;
@@ -166,10 +171,9 @@ public:
 							std::chrono::high_resolution_clock::now() - start;
 
 					return std::make_tuple(res,duration.count(),duration_mid.count());			
-				}
+				}*/
 
 				res.push_back(i_occ.second);
-				//std::cout << "** " << i_occ.second << std::endl;
 			}
 
 			usafe_t f = O.LCS(pattern,m-1,res[high-1]);
@@ -315,6 +319,7 @@ public:
 		{
 			if(i%2 != 0)
 			{
+				//line = "GAGTTCATCCATGTTATAACAAGTGTAACA";
 				//std::cout << line << std::endl;
 				//if(this->S.is_index_large())
 				//	o = locate_pattern(line);
@@ -328,7 +333,8 @@ public:
 
 				if(not check_occs_correctness(std::get<0>(o),line))
 					exit(1);
-				//std::cout << "-->" << std::get<0>(o).size() << std::endl;
+				//std::cout << "---------->" << std::get<0>(o).size() << std::endl;
+				//break;
 			}
 			else{ header = line; }
 			i++;
