@@ -17,7 +17,7 @@ make
 
 The `STPD-index` tool requires
 * A Linux or MacOS 64-bit operating system.
-* A modern C++11\14 compiler such as `g++` version 4.9 or higher.
+* A modern C++17 compiler such as `g++` version 8 or higher.
 
 ### Usage
 
@@ -65,11 +65,11 @@ Below is a list of **external software resources** used in this software.
 
 ## Reference and citation 
 
-[1] Ruben Becker, Davide Cenzato, Travis Gagie, Sung-Hwan Kim, Ragnar Groot Koerkamp, Giovanni Manzini, Nicola Prezza: Compressing Suffix Trees by Path Decompositions , ArXiv 2025. ([go to the paper](https://arxiv.org/abs/2506.14734))
+[1] Ruben Becker, Davide Cenzato, Travis Gagie, Sung-Hwan Kim, Ragnar Groot Koerkamp, Giovanni Manzini, Nicola Prezza: Compressing Suffix Trees by Path Decompositions, ArXiv 2025. ([go to the paper](https://arxiv.org/abs/2506.14734))
 
 ## Contacts
 
-If you notice any bugs, please feel free to report them by opening a Git issue or by contacting us at davidecenzato Unive email.
+If you notice any bugs, please feel free to report them by opening a Git issue or by contacting us at davide[dot]cenzato[at]unive[dot]it.
 
 ## Funding
 

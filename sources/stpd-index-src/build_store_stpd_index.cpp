@@ -2,7 +2,7 @@
 #include <string>
 #include <fstream>
 #include <vector>
-#include <unistd.h>
+#include <filesystem>
 
 #include "stpd-index.hpp"
 
@@ -62,12 +62,23 @@ int main(int argc, char* argv[])
 
     if(inputPath == "" or outputPath == ""){ help(); }
 
+    if(not std::filesystem::exists(inputPath))
+    {
+        std::cerr << "Input file: " << inputPath << " not found! exiting..." << std::endl;
+        exit(1);
+    }
+
     std::cout << "\n[INFO] Constructing and storing the Suffix Tree path decomposition index (STDP-index)" 
               << " for " << inputPath << "\n" << std::endl;
 
     { // compute the path decomposition
         std::cout << "[STEP 0] Computing the ST path decomposition..." << "\n" << std::endl;
-        std::string command = "./build/sources/path-decomp-src/stpd_small -i " + inputPath + " -o " + inputPath + ".colex_m -c -P"; 
+
+        std::filesystem::path exe_path = std::filesystem::canonical(argv[0]);
+        std::filesystem::path exe_dir = exe_path.parent_path();
+
+        std::string command = std::string(exe_dir) +
+                              "/../path-decomp-src/stpd_small -i " + inputPath + " -o " + inputPath + ".colex_m -c -P"; 
         int result = std::system(command.c_str());
         if (result != 0) {
             std::cerr << "Error while computing the path decomposition..." << std::endl;

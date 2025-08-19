@@ -63,23 +63,6 @@ public:
 	  	
 	  	std::cout << "[DONE] Index successfully built!" << "\n" << std::endl;
 	}
-
-	/*
-	void build_colex_pm(const std::string &text_filepath, const std::string &sampling_filepath,
-		                const std::string &rbwt_filepath, const std::string &pa_filepath, size_t refLen)
-	{
-		std::cout << "Constructing the STPD-index for " << text_filepath << std::endl;
-		std::cout << "Step 1) Constructing the random-access text oracle..." << std::endl;
-		if(refLen > 0){ O.build(text_filepath,refLen); }
-		else{ O.build(text_filepath,1.0,0); }
-		std::cout << "Step 2) Constructing the STPD-array binary search data structure..." << std::endl;
-		S.build(sampling_filepath,&O,true); 
-		std::cout << "Step 3) Constructing the phi function..." << std::endl;
-	  	phi.build(rbwt_filepath,pa_filepath);
-
-	  	std::cout << "Index successfully built!" << std::endl;
-	}
-	*/
 	
 	usafe_t store(const std::string &index_filepath)
 	{
@@ -119,6 +102,7 @@ public:
 	}
 
 	// locate all occurrences exponential search
+	/*
 	std::tuple<std::vector<uint_t>,double,double> 
 						 locate_pattern_exp_search(const std::string &pattern) const
 	{
@@ -182,39 +166,106 @@ public:
 				std::chrono::high_resolution_clock::now() - start;
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
-	}
-	/*
+	}*/
+
+	// locate all occurrences exponential search
 	std::tuple<std::vector<uint_t>,double,double> 
-						 locate_pattern(const std::string pattern) const
+						 locate_all_occs_exp_search(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
-		usafe_t i = 1, m = pattern.size();
-		int_t lower_occ, upper_occ;
+		usafe_t m = pattern.size();
+		auto i_occ = this->S.locate_first_prefix(pattern);
 		bool_t mismatch_found;
 
-		this->lower_sample(pattern, lower_occ, mismatch_found);
-		this->upper_sample(pattern, upper_occ);
+		while(i_occ.first-1 < m)
+		{
+			auto j = this->S.binary_search_lower_bound(pattern,0,i_occ.first);
+			mismatch_found = std::get<2>(j);
 
-		if(mismatch_found)
-			return std::make_tuple(std::vector<uint_t>{},0,0);
+			if(mismatch_found)
+				return std::make_tuple(std::vector<uint_t>{},0,0);
 
+			i_occ.second = std::get<0>(j);
+			usafe_t f = O.LCP(pattern,i_occ.first,i_occ.second+1);
+			i_occ.first = i_occ.first + f + 1;
+			i_occ.second = i_occ.second + f;
+		}
 		std::chrono::duration<double> duration_mid = 
 				std::chrono::high_resolution_clock::now() - start;
 
-		std::vector<uint_t> res{uint_t(lower_occ)};
-		while(lower_occ != upper_occ)
+		usafe_t high = 1, low = 0;
+		std::vector<uint_t> res{uint_t(i_occ.second)};
+		usafe_t steps = 8; res.reserve(8*8*8*8);
+
+		while(true)
 		{
-			lower_occ = phi.phi_unsafe(lower_occ);
-			res.push_back(lower_occ);
+			usafe_t phi_steps = steps;
+			while(phi_steps-- > 0)
+			{
+				i_occ.second = phi.phi_unsafe(i_occ.second);
+				if(i_occ.second == -1)
+				{
+					high += (steps - phi_steps) - 1;
+					binary_search_occs(low,high,m,pattern,res);
+					res.resize(low);
+
+					std::chrono::duration<double> duration = 
+							std::chrono::high_resolution_clock::now() - start;
+
+					return std::make_tuple(res,duration.count(),duration_mid.count());			
+				}
+
+				res.push_back(i_occ.second);
+			}
+
+			low = high;
+			high += steps;
+			usafe_t f = O.LCS(pattern,m-1,res[high-1]);
+
+			if(f < m)
+				break;
+
+			steps *= 2;
 		}
-		
+
+		binary_search_occs(low,high,m,pattern,res);
+		res.resize(low);
+
 		std::chrono::duration<double> duration = 
 				std::chrono::high_resolution_clock::now() - start;
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
-	*/
+
+	// locate one occurrence 
+	std::pair<uint_t,double> 
+						 locate_one_occ(const std::string &pattern) const
+	{
+		auto start = std::chrono::high_resolution_clock::now();
+
+		usafe_t m = pattern.size();
+		auto i_occ = this->S.locate_first_prefix(pattern);
+		bool_t mismatch_found;
+
+		while(i_occ.first-1 < m)
+		{
+			auto j = this->S.binary_search_lower_bound(pattern,0,i_occ.first);
+			mismatch_found = std::get<2>(j);
+
+			if(mismatch_found)
+				return std::make_pair(-1,0);
+
+			i_occ.second = std::get<0>(j);
+			usafe_t f = O.LCP(pattern,i_occ.first,i_occ.second+1);
+			i_occ.first = i_occ.first + f + 1;
+			i_occ.second = i_occ.second + f;
+		}
+		std::chrono::duration<double> duration = 
+				std::chrono::high_resolution_clock::now() - start;
+
+		return std::make_pair(i_occ.second,duration.count());
+	}
 
 	// run locate all occurrence queries on all patterns in a fasta file
 	/*
@@ -245,10 +296,7 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				//if(this->S.is_index_large())
-				//	o = locate_pattern(line);
-				//else
-					o = locate_pattern_exp_search(line);
+				o = locate_all_occs_exp_search(line);
 
 				output << header << std::endl;
 				if(std::get<0>(o).size() >= 0)
@@ -310,10 +358,7 @@ public:
 		{
 			if(i%2 != 0)
 			{
-				//if(this->S.is_index_large())
-				//	o = locate_pattern(line);
-				//else
-					o = locate_pattern_exp_search(line);
+				o = locate_all_occs_exp_search(line);
 
 				tot_duration += std::get<1>(o);
 				binary_search_duration += std::get<2>(o);
@@ -390,42 +435,6 @@ private:
 			}
  			
 			mid = (low+high)/2;
-		}
-	}
-
-	void lower_sample(const std::string& pattern, int_t& occ, bool_t& mismatch_found) const
-	{
-		usafe_t i = 1, m = pattern.size();
-		occ = -1;
-
-		while(i-1 < m)
-		{
-			auto j = this->S.binary_search_lower_bound(pattern,0,i);
-			mismatch_found = std::get<2>(j);
-
-			if(mismatch_found)
-				return;
-
-			occ = std::get<0>(j);
-			usafe_t f = O.LCP(pattern,i,occ+1);
-			i = i + f + 1;
-			occ = occ + f;
-		}
-	}
-
-	void upper_sample(const std::string& pattern, int_t& occ) const
-	{
-		usafe_t i = 1, m = pattern.size();
-		occ = -1;
-
-		while(i-1 < m)
-		{
-			auto j = this->S.binary_search_upper_bound(pattern,0,i);
-
-			occ = j;
-			usafe_t f = O.LCP(pattern,i,occ+1);
-			i = i + f + 1;
-			occ = occ + f;
 		}
 	}
 	
