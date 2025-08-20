@@ -102,9 +102,8 @@ public:
 	}
 
 	// locate all occurrences exponential search
-	/*
 	std::tuple<std::vector<uint_t>,double,double> 
-						 locate_pattern_exp_search(const std::string &pattern) const
+						 locate_all_occs_exp_search(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
@@ -166,11 +165,11 @@ public:
 				std::chrono::high_resolution_clock::now() - start;
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
-	}*/
-
+	}
+	
 	// locate all occurrences exponential search
 	std::tuple<std::vector<uint_t>,double,double> 
-						 locate_all_occs_exp_search(const std::string &pattern) const
+						 locate_all_occs_exp_search_lp(const std::string &pattern) const
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
@@ -237,7 +236,7 @@ public:
 
 		return std::make_tuple(res,duration.count(),duration_mid.count());
 	}
-
+	
 	// locate one occurrence 
 	std::pair<uint_t,double> 
 						 locate_one_occ(const std::string &pattern) const
