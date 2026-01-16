@@ -17,42 +17,48 @@ make
 
 The `STPD-index` tool requires
 * A Linux or MacOS 64-bit operating system.
-* A modern C++17 compiler such as `g++` version 8 or higher.
+* A modern C++20 compiler such as `g++` version 10 or higher.
 
 ### Usage
 
-You can construct the STPD-index by using the `build_store_stpd_index` executable:
+You can construct the STPD-index by using the `CLI/stpd-build` executable:
 ```
-build_store_stpd_index [options]
+stpd-build [options]
 Options:
+-i <arg>    Input text base path.                   (REQUIRED)
+-o <arg>    Output index file path.                 (REQUIRED)
+-p <arg>    Phi-function machinery: (r-index|move). (Def. r-index)
+-t <arg>    Text oracle variant: (RLZ|bitpacked).   (Def. RLZ)
+-b <arg>    Tabulation sequences length.            (Def. 15)
+-l <arg>    RLZ reference prefix length.            (Def. None)
+-k          Keep temporary files.                   (Def. False)
 -h          Print usage info.
--i <arg>    Input text file path. (REQUIRED)
--l <arg>    RLZ reference sequence length (if known). (Def. None)
--o <arg>    Output index file path. (REQUIRED)
 ```
 The current implementation is **optimized for the DNA alphabet**; therefore, the input text must contain only DNA characters (A, C, G, T) and should be provided in ASCII format. <br>
 Note that the current path decomposition algorithm computes the explicit suffix tree; therefore, the software **has been tested on small input files** up to a few gigabytes in size.
 
-You can query the STPD-index by using the `locate` executable:
+You can query the STPD-index by using the `CLI/stpd-locate` executable:
 ```
-locate [options]
+stpd-locate [options]
 Options:
 -h          Print usage info.
 -i <arg>    Input index filepath. (REQUIRED)
 -p <arg>    Patterns FASTA file.  (REQUIRED)
 -t <arg>    Maximum number of occurrences to report per pattern. (Def. none)
+-c          Check occurrences correctness. (Def. False)
+-b          Run queries in benchmark mode. (Def. False)
 ```
 This executable runs **locate all occurrences** queries for all patterns in the file specified with the `-p` option. The pattern file must be provided in FASTA format. The `-t` flag allows you to set the maximum number of occurrences to report for each pattern.
 The **output is written to a file named after the pattern file**, with the `.occs` extension.
 
-### Run on Example Data
+### Run on Example Data 
 
 ```console
 // Construct the STPD-index
-./build/sources/stpd-index-src/build_store_stpd_index -i toy_data/yeast.txt -o toy_data/yeast.ci
+./build/CLI/stpd-build -i data/yeast.txt -o data/yeast.stpdi
 
 // Run locate all occurrence queries using the STPD-index
-./build/sources/stpd-index-src/locate -i toy_data/yeast.ci -p toy_data/yeast_patt_100.fasta
+./build/CLI/stpd-locate -i data/yeast.stpdi -p data/yeast_patt_100.fasta
 ```
 
 ### External resources

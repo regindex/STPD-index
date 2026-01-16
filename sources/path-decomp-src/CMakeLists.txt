@@ -1,2 +1,0 @@
-add_executable(stpd_small STPD_small_files.cpp)
-target_link_libraries(stpd_small sdsl divsufsort divsufsort64) 

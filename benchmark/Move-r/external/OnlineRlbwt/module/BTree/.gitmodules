@@ -1,0 +1,3 @@
+[submodule "module/Basics"]
+	path = module/Basics
+	url = https://github.com/itomomoti/Basics.git
