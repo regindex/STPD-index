@@ -13,7 +13,7 @@ void help(){
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input text file path.                     (REQUIRED)" << std::endl <<
     "-a <arg>    Prefix array file path                    (5 bytes per entry). (REQUIRED)" << std::endl <<
-    "-t <arg>    Text oracle variant: (RLZ|plain).         (Def. RLZ)" << std::endl <<
+    "-t <arg>    Text oracle variant: (RLZ|bitpacked).     (Def. RLZ)" << std::endl <<
     "-l <arg>    RLZ reference sequence length (if known). (Def. None)" << std::endl <<
     "-o <arg>    Output index file path.                   (REQUIRED)" << std::endl;
     exit(0);
@@ -71,9 +71,9 @@ int main(int argc, char* argv[])
     if(inputPath == "" or paPath == "" or outputPath == ""){ help(); }
 
     // set the index variant
-    if(oracleVariant      == "RLZ")  { index.emplace<0>(); }
-    else if(oracleVariant == "plain"){ index.emplace<1>(); }
-    else                             { help(); }    
+    if(oracleVariant      == "RLZ")      { index.emplace<0>(); }
+    else if(oracleVariant == "bitpacked"){ index.emplace<1>(); }
+    else                                 { help(); }    
 
     std::cout << "\n[INFO] Constructing and storing the Suffix Array index" 
               << " for " << inputPath << "\n" << std::endl;
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
     }
 
     { // write index parameters
-        std::ofstream out(outputPath + ".PA_param");
+        std::ofstream out(outputPath + ".param");
         out << oracleVariant << "\n" << refLen << "\n" << inputPath << "\n" << outputPath;
         out.close();
     }

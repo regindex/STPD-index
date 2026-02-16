@@ -5,6 +5,7 @@
 /* Modified by Davide Cenzato to implement the STPD-index benchmarks */
 
 #include <iostream>
+#include <iomanip>
 
 #include <malloc_count.h>
 
@@ -22,7 +23,7 @@ void help(){
 	cout << "ri-locate: run locate/count query benchmarks." << endl << endl;
 
 	cout << "Usage: ri-locate [options] <index> <patterns>" << endl;
-	cout << "   -q <query_type>   select the type of query benchmark (loc_all|loc_prim|count)" << endl;
+	cout << "   -q <query_type>   select the type of query benchmark (secondary|primary)" << endl;
     cout << "   -t <max_occs>     maximum number of occurrences to report per pattern. (Def. all)" << endl;
 	cout << "   <index>           index file (with extension .ri)" << endl;
 	cout << "   <patterns>        file in FASTA format containing the patterns." << endl;
@@ -128,134 +129,287 @@ void count_benchmark(std::ifstream& in, string patterns)
 }
 
 template<class idx_t>
+void locate_benchmark(std::ifstream& in, string patterns, uint64_t occ_thr)
+{
+    idx_t idx;
+    cout << "Loading the r-index" << endl;
+	idx.load(in);
+
+    // --- RESET MEMORY COUNTER ---
+    // compute index size + basic program overhead.
+    size_t index_memory_bytes = malloc_count_current();
+
+    // --- PHASE 1: LOAD DATA ---
+	// read patterns into memory first to avoid disk I/O latency.
+	std::ifstream ifs(patterns);
+	std::ofstream output(patterns+".ri_occs");
+	std::ofstream logfile(patterns+".ri_primary_log");
+
+    struct QueryData {
+        std::string header;
+        std::string pattern;
+    };
+    std::vector<QueryData> queries;
+
+    using Step1ReturnType = decltype(idx.count_and_get_occ(""));
+    std::vector<Step1ReturnType> step1_results;
+
+    std::string line, header;
+    uint64_t i = 0, tot_char = 0;
+
+    while(std::getline(ifs, line)) 
+    {
+        if(i % 2 != 0) {
+            queries.push_back({header, line});
+            tot_char += line.size();
+        } else {
+            header = line;
+        }
+        i++;
+    }
+    ifs.close();
+
+	// reserve space to prevent reallocation during timing
+    step1_results.reserve(queries.size());
+
+    uint64_t tot_pattern = queries.size();
+    uint64_t tot_soccs = 0;
+    double tot_primary_duration = 0;
+    double tot_secondary_duration = 0;
+
+    // --- PHASE 2: RUN STEP 1 (Primary occurrences) ---
+    for(const auto& q : queries)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+		auto res = idx.count_and_get_occ(q.pattern);
+		res.first.first += 1;
+        std::chrono::duration<double> duration = 
+                std::chrono::high_resolution_clock::now() - start;
+
+        tot_primary_duration += duration.count();
+        step1_results.push_back(res);
+    }
+
+    // --- RESET MEMORY COUNTER ---
+    size_t memory_after_step_1 = malloc_count_current();
+    malloc_count_reset_peak();
+
+    // --- PHASE 3: RUN STEP 2 (Secondary occurrences) ---
+    // Step 2 enumerates the secondary occurences.
+    for(size_t k = 0; k < queries.size(); ++k)
+    {
+        auto& res = step1_results[k]; 
+        int64_t pocc = res.second;
+
+        auto start = std::chrono::high_resolution_clock::now();
+        auto soccs = idx.locate_occurrences_in_range(res.first, pocc,
+        											 occ_thr - 1);
+        std::chrono::duration<double> duration = 
+                std::chrono::high_resolution_clock::now() - start;
+
+        tot_secondary_duration += duration.count();
+        tot_soccs += soccs.size();
+
+        // write output outside the timer
+        output << queries[k].header << std::endl;
+        if( pocc != -1 )
+        {   
+            output << pocc << " ";
+            for(auto& occ : soccs)
+                output << occ << " ";
+            output << std::endl;
+        }
+        else { output << std::endl; }
+    }
+
+    output.close();
+
+	// --- PHASE 4: LOG DATA ---
+    std::cout << "No. occurences found = "      << tot_soccs + tot_pattern              << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() -
+              							  (memory_after_step_1 - index_memory_bytes)    << "\n"
+              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
+              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+              << "Time per primary occurrence (ns) = "        << 
+                                         (tot_primary_duration/tot_pattern) * 1000000000 << "\n"
+              << "Time per secondary occurrence (ns) = "      << 
+                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
+
+    logfile   << "No. occurences found = "      << tot_soccs + tot_pattern              << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() -
+              							  (memory_after_step_1 - index_memory_bytes)    << "\n"
+              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
+              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+              << "Time per primary occurrence (ns) = "        << 
+                                         (tot_primary_duration/tot_pattern) * 1000000000 << "\n"
+              << "Time per secondary occurrence (ns) = "      << 
+                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
+
+    logfile.close();
+}
+
+template<class idx_t>
 void locate_primary_benchmark(std::ifstream& in, string patterns)
 {
     idx_t idx;
     cout << "Loading the r-index" << endl;
-	idx.load(in);
+	idx.load(in,true);
 
-	cout << "searching patterns in " << patterns << endl;
-	ifstream ifs(patterns);
-	std::ofstream output(patterns+".ri_occs");
+    // --- RESET MEMORY COUNTER ---
+    // compute index size + basic program overhead.
+    size_t index_memory_bytes = malloc_count_current();
+
+    // --- PHASE 1: LOAD DATA ---
+	// read patterns into memory first to avoid disk I/O latency.
+	std::ifstream ifs(patterns);
 	std::ofstream logfile(patterns+".ri_primary_log");
 
-	std::string line, header;
-	size_t i = 0, tot_char = 0, tot_occs = 0;
-	double tot_duration = 0;
+    struct QueryData {
+        std::string header;
+        std::string pattern;
+    };
+    std::vector<QueryData> queries;
 
-	malloc_count_reset_peak();
+    std::string line, header;
+    uint64_t i = 0, tot_char = 0;
 
-	while(std::getline(ifs, line))
-	{
-		if(i%2 != 0)
-		{
-			auto start = std::chrono::high_resolution_clock::now();
-			auto RES = idx.count_and_get_occ(line);
-			std::chrono::duration<double> duration = 
-					std::chrono::high_resolution_clock::now() - start;
+    while(std::getline(ifs, line)) 
+    {
+        if(i % 2 != 0) {
+            queries.push_back({header, line});
+            tot_char += line.size();
+        } else {
+            header = line;
+        }
+        i++;
+    }
+    ifs.close();
 
-			output << header << std::endl;
-			if( RES.first.second >= RES.first.first )
-			{
-				output << RES.second << "\n";
-				tot_occs += RES.first.second - RES.first.first + 1;
-			}
-			else { output << "-1\n"; }
-			
-			tot_duration += duration.count();
-			tot_char += line.size();
-		}
-		else{ header = line; }
-		i++;
-	}
+    uint64_t tot_pattern = queries.size();
+    double  tot_primary_duration = 0;
+    uint64_t tot_primary_found = 0;
 
-	ifs.close();
+    // --- PHASE 2: (Primary occurrences) ---
+    for(const auto& q : queries)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+		auto res = idx.count_and_get_occ(q.pattern);
+		int64_t pocc = res.second;
+        std::chrono::duration<double> duration = 
+                std::chrono::high_resolution_clock::now() - start;
 
-	std::cout << "Memory peak (bytes) = " << malloc_count_peak() << "\n"
-	       << "Elapsed time (sec) = " << tot_duration << "\n"
-	       << "Tot. occurences = " << tot_occs << "\n"
-	       << "No. patterns = " << i/2 << "\n"
-	       << "No. characters = " << tot_char << "\n"
-	       << "Time per pattern (ns) = " << (tot_duration/(i/2))*1000000000 << "\n"
-	       << "Time per character (ns) = " << (tot_duration/(tot_char))*1000000000 << "\n";
+        tot_primary_duration += duration.count();
+        tot_primary_found += (res.first.first > res.first.second ? 0 : 1);
+    }
 
-	logfile << "Memory peak (bytes) = " << malloc_count_peak() << "\n"
-	        << "Elapsed time (sec) = " << tot_duration << "\n"
-	        << "Tot. occurences = " << tot_occs << "\n"
-	        << "No. patterns = " << i/2 << "\n"
-	        << "No. characters = " << tot_char << "\n"
-	        << "Time per pattern (ns) = " << (tot_duration/(i/2))*1000000000 << "\n"
-	        << "Time per character (ns) = " << (tot_duration/(tot_char))*1000000000 << "\n";
+	// --- PHASE 4: LOG DATA ---
+    std::cout << "No. primary occs found = "    << tot_primary_found                    << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
+              << "Time per primary occurrence (ns) = " << std::fixed << std::setprecision(2) << 
+                                        (tot_primary_duration/tot_pattern) * 1000000000 << std::endl;
 
-	output.close();
-	logfile.close();
+    logfile   << "No. primary occs found = "    << tot_primary_found                    << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
+              << "Time per primary occurrence (ns) = " << std::fixed << std::setprecision(2) << 
+                                        (tot_primary_duration/tot_pattern) * 1000000000 << std::endl;
+
+    logfile.close();
 }
 
 template<class idx_t>
-void locate_all_benchmark(std::ifstream& in, string patterns, uint64_t thr)
+void locate_secondary_benchmark(std::ifstream& in, string patterns, uint64_t occ_thr)
 {
     idx_t idx;
     cout << "Loading the r-index" << endl;
 	idx.load(in);
 
-	cout << "searching patterns in " << patterns << endl;
-	ifstream ifs(patterns);
-	std::ofstream output(patterns+".ri_occs");
-	std::ofstream logfile(patterns+".ri_locate_log");
+    // --- RESET MEMORY COUNTER ---
+    // compute index size + basic program overhead.
+    size_t index_memory_bytes = malloc_count_current();
 
-	std::string line, header;
-	size_t i = 0, tot_char = 0, tot_occs = 0;
-	double tot_duration = 0;
+    // --- PHASE 1: LOAD DATA ---
+	// read patterns into memory first to avoid disk I/O latency.
+	std::ifstream ifs(patterns);
+	std::ofstream logfile(patterns+".ri_primary_log");
 
-	malloc_count_reset_peak();
+    struct QueryData {
+        std::string header;
+        std::string pattern;
+    };
+    std::vector<QueryData> queries;
 
-	while(std::getline(ifs, line))
-	{
-		if(i%2 != 0)
-		{
-			auto start = std::chrono::high_resolution_clock::now();
-			auto OCC = idx.locate_all(line, thr);
-			std::chrono::duration<double> duration = 
-					std::chrono::high_resolution_clock::now() - start;
+    std::string line, header;
+    uint64_t i = 0, tot_char = 0;
 
-			output << header << std::endl;
-			if(OCC.size() > 0)
-			{ 
-				for( const auto& e : OCC )
-					output << e << " ";
-				output << std::endl;
-			}
-			
-			tot_duration += duration.count();
-			tot_char += line.size();
-			tot_occs += OCC.size();
-		}
-		else{ header = line; }
-		i++;
-	}
+    while(std::getline(ifs, line)) 
+    {
+        if(i % 2 != 0) {
+            queries.push_back({header, line});
+            tot_char += line.size();
+        } else {
+            header = line;
+        }
+        i++;
+    }
+    ifs.close();
 
-	ifs.close();
+    malloc_count_reset_peak();
 
-	std::cout << "Memory peak (bytes) = " << malloc_count_peak() << "\n"
-	       << "Elapsed time (sec) = " << tot_duration << "\n"
-	       << "Tot. occurences = " << tot_occs << "\n"
-	       << "No. patterns = " << i/2 << "\n"
-	       << "No. characters = " << tot_char << "\n"
-	       << "Time per pattern (ns) = " << (tot_duration/(i/2))*1000000000 << "\n"
-	       << "Time per character (ns) = " << (tot_duration/(tot_char))*1000000000 << "\n"
-	       << "Time per occurrence (ns) = " << (tot_duration/(tot_occs))*1000000000 << "\n";
+    uint64_t tot_pattern = queries.size();
+    uint64_t tot_soccs = 0;
+    double tot_secondary_duration = 0;
 
-	logfile << "Memory peak (bytes) = " << malloc_count_peak() << "\n"
-	        << "Elapsed time (sec) = " << tot_duration << "\n"
-	        << "Tot. occurences = " << tot_occs << "\n"
-	        << "No. patterns = " << i/2 << "\n"
-	        << "No. characters = " << tot_char << "\n"
-	        << "Time per pattern (ns) = " << (tot_duration/(i/2))*1000000000 << "\n"
-	        << "Time per character (ns) = " << (tot_duration/(tot_char))*1000000000 << "\n"
-	        << "Time per occurrence (ns) = " << (tot_duration/(tot_occs))*1000000000 << "\n";
+    // --- PHASE 2: RUN QUERIES (Secondary occurrences) ---
+    for(const auto& q : queries)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+		auto res = idx.count_and_get_occ(q.pattern);
+		res.first.first += 1;
 
-	output.close();
-	logfile.close();
+		std::vector<uint32_t> soccs{};
+		if(res.second != -1)
+			soccs = idx.locate_occurrences_in_range(res.first, res.second,
+        											occ_thr - 1);
+
+        std::chrono::duration<double> duration = 
+                std::chrono::high_resolution_clock::now() - start;
+
+        tot_secondary_duration += duration.count();
+        tot_soccs += soccs.size() + (res.second == -1 ? 0 : 1);
+    }
+
+	// --- PHASE 4: LOG DATA ---
+    std::cout << "No. occurences found = "      << tot_soccs                            << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() 	<< "\n"
+              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+              << "Time per secondary occurrence (ns) = "      << std::fixed << std::setprecision(2) <<  
+                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
+
+    logfile   << "No. occurences found = "      << tot_soccs + tot_pattern              << "\n"
+              << "No. processed patterns = "    << tot_pattern                          << "\n"
+              << "No. processed characters = "  << tot_char                             << "\n" 
+              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
+              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() 	<< "\n"
+              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+              << "Time per secondary occurrence (ns) = "      << std::fixed << std::setprecision(2) << 
+                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
+
+    logfile.close();
 }
 
 int main(int argc, char** argv){
@@ -277,12 +431,13 @@ int main(int argc, char** argv){
 	//fast or small index?
 	in.read((char*)&fast,sizeof(fast));
 
-	if( qtype == "loc_all" )
-		locate_all_benchmark< r_index<> >(in, patt_file, maxOcc);
-	else if( qtype == "loc_prim" )
+	if( qtype == "secondary" )
+	{
+		uint64_t maxOcc = (1ULL << 63) | ((1ULL << 63) - 1);
+		locate_secondary_benchmark< r_index<> >(in, patt_file, maxOcc);
+	}
+	else if( qtype == "primary" )
 		locate_primary_benchmark< r_index<> >(in, patt_file);
-	else if( qtype == "count" )
-		count_benchmark< r_index<> >(in, patt_file);
 	else{
 		cout << "Unspecified query type, see the help function (-t flag). Exiting..." << endl;
 		exit(1);

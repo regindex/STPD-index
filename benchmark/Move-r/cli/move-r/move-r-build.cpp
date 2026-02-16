@@ -178,6 +178,12 @@ int main(int argc, char** argv)
         } else {
             build<uint64_t, _count>();
         }
+    } else if (support == _locate_one) {
+        if (n < UINT_MAX) {
+            build<uint32_t, _locate_one>();
+        } else {
+            build<uint64_t, _locate_one>();
+        }
     } else if (support == _locate_move) {
         if (n < UINT_MAX) {
             build<uint32_t, _locate_move>();

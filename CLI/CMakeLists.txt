@@ -1,5 +1,5 @@
 add_executable(stpd-sampling  path-decomp-src/STPD_small_files.cpp)
-add_executable(stpd-build     stpd-index-src/build_store_index.cpp)
+add_executable(stpd-build     stpd-index-src/build_index.cpp)
 add_executable(stpd-locate    stpd-index-src/locate.cpp)
 
 target_link_libraries(stpd-sampling  PRIVATE stpd)

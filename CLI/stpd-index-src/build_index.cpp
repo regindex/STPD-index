@@ -15,7 +15,7 @@ void help(){
     "-o <arg>    Output index file path.                 (REQUIRED)" << std::endl <<
     "-p <arg>    Phi-function machinery: (r-index|move). (Def. r-index)" << std::endl <<
     "-t <arg>    Text oracle variant: (RLZ|bitpacked).   (Def. RLZ)" << std::endl <<
-    "-b <arg>    Tabulation sequences length.            (Def. 15)" << std::endl <<
+    "-b <arg>    Tabulation maximum space overhead.      (Def. 50 (perc))" << std::endl <<
     "-l <arg>    RLZ reference prefix length.            (Def. None)" << std::endl <<
     "-k          Keep temporary files.                   (Def. False)" << std::endl <<
     "-h          Print usage info." << std::endl;
@@ -26,10 +26,10 @@ void help(){
 using indexVariant = std::variant<
     stpd::colex_minus_index<stpd::tabulated_binary_search_DNA<RLZ_DNA_sux<>>,
                             RLZ_DNA_sux<>,
-                            stpd::r_index_phi_inv_intlv>,
+                            stpd::r_index_phi_inv>,
     stpd::colex_minus_index<stpd::tabulated_binary_search_DNA<stpd::bitpacked_text_oracle>,
                             stpd::bitpacked_text_oracle,
-                            stpd::r_index_phi_inv_intlv>,
+                            stpd::r_index_phi_inv>,
     stpd::colex_minus_index<stpd::tabulated_binary_search_DNA<RLZ_DNA_sux<>>,
                             RLZ_DNA_sux<>,
                             stpd::move_r_phi_inv>,
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
     std::string inputPath, outputPath, 
                 phiVariant = "r-index", oracleVariant = "RLZ";
     bool verbose = false, keep = false;
-    usafe_t refLen = 0, tabLen = 15;
+    usafe_t refLen = 0, tabOverhead = 15;
 
     indexVariant index;
 
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
                 refLen = std::atoll(optarg);
             break;
             case 'b':
-                tabLen = std::atoll(optarg);
+                tabOverhead = std::atoll(optarg);
             break;
             default:
                 help();
@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
         std::visit([&](auto& idx) {
             // compute the index
             idx.build(inputPath,inputPath+".colex_m",inputPath+".rbwt",
-                      inputPath+".pa",inputPath+".lcs",refLen,tabLen);
+                      inputPath+".pa",inputPath+".lcs",refLen,tabOverhead);
             // store the index
             idx.store(outputPath); }, index);
     }

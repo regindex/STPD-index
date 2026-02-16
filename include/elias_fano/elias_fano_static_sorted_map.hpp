@@ -293,13 +293,13 @@ class EliasFanoStaticSortedMap {
 
 		w_bytes += lower_bits.serialize(out);
 		w_bytes += upper_bits.serialize(out);
-		w_bytes += select_upper.serialize(out);
 		w_bytes += selectz_upper.serialize(out);
+		w_bytes += select_upper.serialize(out);
 
 		return w_bytes;
 	}
 
-	void load(std::istream& in)
+	void load(std::istream& in, bool successor_only = false)
 	{
 		in.read((char*)&u, sizeof(u));
 		in.read((char*)&n, sizeof(n));
@@ -310,8 +310,9 @@ class EliasFanoStaticSortedMap {
 
 		lower_bits.load(in);
 		upper_bits.load(in);
-		select_upper.load(in,&upper_bits);
 		selectz_upper.load(in,&upper_bits);
+		if(not successor_only)
+			select_upper.load(in,&upper_bits);
 	}
 
   private:

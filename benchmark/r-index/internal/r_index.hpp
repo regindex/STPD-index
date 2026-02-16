@@ -327,7 +327,7 @@ public:
 	 * returns <range, j,k>
 	 *
 	 */
-	pair<range_t, ulint> count_and_get_occ(string &P){
+	pair<range_t, ulint> count_and_get_occ(const string &P){
 
 		//k = SA[r]
 		ulint k = 0;
@@ -392,6 +392,30 @@ public:
 
 	}
 
+	vector<uint32_t>
+	locate_occurrences_in_range(range_t range, ulint k, ulint T)
+	{
+		vector<uint32_t> OCC;
+
+		ulint L = range.first;
+		ulint R = range.second;
+
+		ulint n_occ = R>=L ? std::min((R-L)+1,T) : 0;
+
+		if(n_occ>0){
+
+			for(ulint i=0;i<n_occ;++i){
+
+				k = Phi(k);
+				OCC.push_back(k);
+
+			}
+
+		}
+
+		return OCC;
+	}
+
 	/*
 	 * locate all occurrences of P and return them in an array
 	 * (space consuming if result is big).
@@ -404,7 +428,7 @@ public:
 
 		ulint L = std::get<0>(res).first;
 		ulint R = std::get<0>(res).second;
-		ulint k = std::get<1>(res);	//SA[R]
+		ulint k = std::get<1>(res);	//SA[R] // 0 1
 
 		ulint n_occ = R>=L ? std::min((R-L)+1,T) : 0;
 
@@ -422,7 +446,6 @@ public:
 		}
 
 		return OCC;
-
 	}
 
 
@@ -464,8 +487,8 @@ public:
 
 		w_bytes += bwt.serialize(out);
 
-		w_bytes += pred.serialize(out);
 		w_bytes += samples_last.serialize(out);
+		w_bytes += pred.serialize(out);
 		w_bytes += pred_to_run.serialize(out);
 
 		return w_bytes;
@@ -475,7 +498,7 @@ public:
 	/* load the structure from the istream
 	 * \param in the istream
 	 */
-	void load(std::istream& in) {
+	void load(std::istream& in, bool locate_primary_only = false) {
 
 		in.read((char*)&terminator_position,sizeof(terminator_position));
 
@@ -486,9 +509,11 @@ public:
 
 		r = bwt.number_of_runs();
 
-		pred.load(in);
 		samples_last.load(in);
-		pred_to_run.load(in);
+		if(not locate_primary_only){
+			pred.load(in);
+			pred_to_run.load(in);
+		}
 
 	}
 

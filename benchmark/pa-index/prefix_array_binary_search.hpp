@@ -97,73 +97,112 @@ public:
 		alph.load(in);
 	}
 
-	//std::tuple<uint_t,uint_t,bool_t> 
-	uint_t locate_lower_bound(const std::string& pattern) const
+	usafe_t range_lower_boundary(const std::string& pattern) const
 	{
 		// initialize binary search parameters
-		uint_t low, mid, high, plen;
-		//int_t lcp_low, lcp_high, lcp_mid;
+		usafe_t low, mid, high, plen;
 		plen = pattern.size();
-		low  = this->alph[pattern[plen-1]];
-		high = this->alph[pattern[plen-1]+1];
+		low  = this->alph[ pattern[plen - 1] ];
+		high = this->alph[ pattern[plen - 1] + 1 ];
 
 		// stop if first pattern character doesn't occur in the text
-		if((high - low) > 0)
-			{ 
-				if(plen == 1){ return low; }
-				high--;
-				//lcp_low = lcp_high = -1; 
-				mid = (low+high)/2;
-			}
-		else{ return -1; }
+		if( (high - low) > 0 )
+		{ 
+			if(plen == 1)
+				return low;
 
-		while( high != low )
+			high--;
+			mid = (low + high) / 2;
+		}
+
+		// run the binary search
+		while(high != low)
 		{	
-			auto j = O->LCS_char(pattern,plen-1,this->PA[mid]); 
+			auto lcs = O->LCS_char(pattern, plen-1, this->PA[mid]); 
 
-			if(j.first == plen or j.second > pattern[plen-j.first-1])
-			{  
+			if(lcs.first == plen or 
+			   lcs.second > pattern[plen - lcs.first - 1])
 				high = mid;
-			}
-			else{
+			else
 				low = mid + 1;
-			}
-			mid = (low+high)/2;
+
+			mid = (low + high) / 2;
 		}
 
 		return low;
 	}
 
-	uint_t locate_upper_bound(const std::string& pattern) const
+	std::pair<usafe_t,safe_t>
+	range_lower_boundary_lcs(const std::string& pattern) const
 	{
 		// initialize binary search parameters
-		uint_t low, mid, high, plen;
-		//int_t lcp_low, lcp_high, lcp_mid;
+		usafe_t low, mid, high, plen;
+		safe_t curr_lcs = -1;
 		plen = pattern.size();
-		low  = this->alph[pattern[plen-1]];
-		high = this->alph[pattern[plen-1]+1];
+		low  = this->alph[ pattern[plen - 1] ];
+		high = this->alph[ pattern[plen - 1] + 1 ];
 
 		// stop if first pattern character doesn't occur in the text
-		if((high - low) > 0)
-			{ 
-				if(plen == 1){ return high; }
-				mid = (low+high)/2;
-			}
-		else{ return -1; }
+		if( (high - low) > 0 )
+		{ 
+			if(plen == 1)
+				return std::make_pair(low,0);
 
-		while( high-low > 1 )
-		{		
-			auto j = O->LCS_char(pattern,plen-1,this->PA[mid]); 
+			high--;
+			mid = (low + high) / 2;
+		}
 
-			if(j.second > pattern[plen-j.first-1])
-			{  
+		// run the binary search
+		while(high != low)
+		{	
+			auto lcs = O->LCS_char(pattern, plen-1, this->PA[mid]); 
+
+			if(lcs.first == plen or 
+			   lcs.second > pattern[plen - lcs.first - 1])
+			{
 				high = mid;
+				curr_lcs = lcs.first;
 			}
 			else
-			{
+				low = mid + 1;
+
+			mid = (low + high) / 2;
+		}
+
+		if(curr_lcs < 0)
+			curr_lcs = O->LCS_char(pattern, plen-1, this->PA[low]).first;
+
+		return std::make_pair(low,curr_lcs);
+	}
+
+	usafe_t range_upper_boundary(const std::string& pattern) const
+	{
+		// initialize binary search parameters
+		usafe_t low, mid, high, plen;
+		plen = pattern.size();
+		low  = this->alph[ pattern[plen - 1] ];
+		high = this->alph[ pattern[plen - 1] + 1 ];
+
+		// stop if first pattern character doesn't occur in the text
+		if( (high - low) > 0 )
+		{ 
+			if(plen == 1)
+				return high;
+
+			mid = (low + high) / 2;
+		}
+
+		// run the binary search
+		while(high-low > 1)
+		{		
+			auto lcs = O->LCS_char(pattern, plen-1, this->PA[mid]); 
+
+			if(lcs.second > pattern[plen - lcs.first - 1])
+				high = mid;
+			else
 				low = mid;
-			}
-			mid = (low+high)/2;
+
+			mid = (low + high) / 2;
 		}
 
 		return high;
@@ -172,7 +211,7 @@ public:
 	std::vector<uint_t> get_SA_range(uint_t b, uint_t e) const
 	{
 		std::vector<uint_t> range(e-b,0);
-		for(uint_t i=0;i<range.size();++i)
+		for(usafe_t i=0;i<range.size();++i)
 		{
 			range[i] = PA[b+i];
 		}
@@ -182,11 +221,10 @@ public:
 
 	std::vector<uint_t> get_SA_range_thr(uint_t b, uint_t e, usafe_t thr) const
 	{
-		std::vector<uint_t> range(std::min(static_cast<usafe_t>(e-b),thr),0);
-		for(uint_t i=0;i<range.size();++i)
-		{
+		std::vector<uint_t> range( std::min(static_cast<usafe_t>(e - b), thr), 0 );
+		
+		for(usafe_t i=0; i<range.size(); ++i)
 			range[i] = PA[b+i];
-		}
 
 		return range;
 	}

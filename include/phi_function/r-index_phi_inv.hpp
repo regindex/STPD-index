@@ -1,16 +1,16 @@
 #ifndef R_INDEX_PHI_SUX_INTLV_HPP_
 #define R_INDEX_PHI_SUX_INTLV_HPP_
 
-#include <elias_fano_intlv.hpp>
+#include <elias_fano_static_sorted_map.hpp>
 #include <common/common.hpp>
 
 namespace stpd{
 
-class r_index_phi_inv_intlv
+class r_index_phi_inv
 {
 public:
 	
-	r_index_phi_inv_intlv(){} // empty constructor
+	r_index_phi_inv(){} // empty constructor
 
 	void build(const std::string bwt_filename, const std::string sa_filename, bool_t verbose = true)
 	{
@@ -60,7 +60,8 @@ public:
 		});
 
 		// construct a sorted dictionary storing (end of run, beginning of run) sample pairs
-		LFsamples.build(last_first,bwt_length,bitsize(uint64_t(bwt_length)));
+		//LFsamples.build(last_first,bwt_length,bitsize(uint64_t(bwt_length)));
+		LFsamples.build(last_first);
 
 		bwt.close();
 		sa.close();
@@ -70,7 +71,7 @@ public:
 	{
 		if(idx != L)
 		{
-			auto res = LFsamples.successor_value(idx);
+			auto res = LFsamples.successor(idx);
 			return res.second - (res.first - idx);
 		}
 		else{ return F; }
@@ -78,7 +79,7 @@ public:
 
 	int_t phi_unsafe(const uint_t idx) const
 	{
-		auto res = LFsamples.successor_value(idx);
+		auto res = LFsamples.successor(idx);
 
 		return res.second - (res.first - idx);
 	}
@@ -100,7 +101,7 @@ public:
 		in.read((char*)&L, sizeof(L));
 		in.read((char*)&F, sizeof(F));
 
-		LFsamples.load(in);
+		LFsamples.load(in,true);
 	}
 
 	uint_t serialize(std::ostream& out)
@@ -123,7 +124,8 @@ private:
 		safe_t sa;
 	};
 	
-	sux::bits::InterleavedEliasFano<> LFsamples; // last - first samples dictionary
+	//sux::bits::InterleavedEliasFano<> LFsamples; 
+	stpd::ef::EliasFanoStaticSortedMap<> LFsamples; // last - first samples dictionary
 	/* query environment */
 	uint_t L, F; // last and first SA entry
 

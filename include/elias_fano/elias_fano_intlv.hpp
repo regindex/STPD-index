@@ -110,44 +110,6 @@ template <util::AllocType AT = util::AllocType::MALLOC> class InterleavedEliasFa
 	 * @param universe_size size of the largest key that can be represented.
 	 * @param width_values number of bits need to represent each values.
 	 */
-  
-  /*
- 	void build(const std::vector<std::pair<uint64_t,uint64_t>>& keys_values,
- 		         const 																	uint64_t universe_size,
- 		         const                                  uint64_t largest_value)
-	{
-		this->n = keys_values.size();
-		this->u = universe_size;
-		this->w = lambda_safe(largest_value)+1;
-		this->l = n == 0 ? 0 : max(0, lambda_safe(u / n));
-
-		#ifdef DEBUG
-	    std::cout << "Universe size (u): " << u << std::endl;
-	    std::cout << "Values width (w): " << w << std::endl;
-			std::cout << "Number of integers (n): " << n << std::endl;
-			std::cout << "log(u/n): " << l << std::endl;
-			std::cout << "Upper bits: " << n + (u >> l) + 1 << std::endl;
-			std::cout << "Lower bits: " << n * (l + w) << std::endl;
-		#endif DEBUG
-
-		const uint64_t lower_bits_mask = (1ULL << l) - 1;
-
-		lower_bits.size(((n * (l + w)) + 63) / 64 );
-		upper_bits.size(((n + (u >> l) + 1) + 63) / 64);
-
-		for (uint64_t i = 0; i < n; ++i)
-		{
-			if (l != 0) set_bits(lower_bits, i * (l + w), l, keys_values[i].first & lower_bits_mask);
-			set_bits(lower_bits,(i * (l + w))+l, w, keys_values[i].second);
-			set(upper_bits, (keys_values[i].first >> l) + i);
-		}
-
-		select_upper = SimpleSelectHalf<>(&upper_bits, n + (u >> l) + 1);
-		selectz_upper = SimpleSelectZeroHalf<>(&upper_bits, n + (u >> l) + 1);
-
-		this->lower_l_bits_mask = (1ULL << l) - 1;
-	}
-	*/
 
  	void build(const std::vector<std::pair<uint64_t,uint64_t>>& keys_values,
  		         const uint64_t universe_size, const uint8_t  values_width)
@@ -211,41 +173,6 @@ template <util::AllocType AT = util::AllocType::MALLOC> class InterleavedEliasFa
 
 		return ++rank;
 	}
-	/*
-	uint64_t rank1_(const size_t k) const
-	{
-		if (n == 0) return 0;
-		if (k >= u) return n;
-		#ifdef DEBUG
-				printf("Ranking %lld...\n", k);
-		#endif
-		const uint64_t k_shiftr_l = k >> l;
-		std::cout << "k_shiftr_l = " << k_shiftr_l << std::endl;
-
-		int64_t pos = selectz_upper.selectZero(k_shiftr_l);
-		std::cout << "pos = " << pos << std::endl;
-		uint64_t rank = pos - (k_shiftr_l);
-		std::cout << "rank = " << rank << std::endl;
-
-		#ifdef DEBUG
-				printf("Position: %lld rank: %lld\n", pos, rank);
-		#endif
-
-		uint64_t rank_times_l = rank * (l + w);
-		std::cout << "rank_times_l = " << rank_times_l << std::endl;
-		const uint64_t k_lower_bits = k & lower_l_bits_mask;
-		std::cout << "k_lower_bits = " << k_lower_bits << std::endl;
-
-		do {
-			rank--;
-			rank_times_l -= (l + w);
-			pos--;
-		} while (pos >= 0 && (upper_bits[pos / 64] & 1ULL << pos % 64) && 
-			                   get_bits(lower_bits, rank_times_l, l) >= k_lower_bits);
-
-		return ++rank;
-	}
-	*/
 
 	size_t select1(const uint64_t rank) const
 	{
@@ -270,7 +197,7 @@ template <util::AllocType AT = util::AllocType::MALLOC> class InterleavedEliasFa
 	size_t get_sample(const uint64_t i) const { return get_bits(lower_bits, (i * (l + w))+l, w); }
 
 	// return the successor of i and its interleaved value
-	std::pair<uint64_t,uint64_t> successor_value(uint64_t i) const
+	std::pair<uint64_t,uint64_t> successor(uint64_t i) const
 	{
 		std::pair<uint64_t,uint64_t> res;
 		res.first = select1_value(rank1(i),res.second);

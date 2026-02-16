@@ -5,29 +5,31 @@
 #include <filesystem>
 #include <variant>
 
-#include "pa-index.hpp"
+#include "sA-index.hpp"
 
 void help(){
 
-    std::cout << "locate [options]" << std::endl <<
+    std::cout << "stpd-locate [options]" << std::endl <<
     "Options:" << std::endl <<
     "-h          Print usage info." << std::endl <<
     "-i <arg>    Input index filepath. (REQUIRED)" << std::endl <<
     "-p <arg>    Patterns FASTA file.  (REQUIRED)" << std::endl <<
-    "-t <arg>    Maximum number of occurrences to report per pattern. (Def. all)" << std::endl <<
+    "-c          Check occurrences correctness. (Def. False)" << std::endl <<
     "-b          Run locate queries performance benchmark (Def. False)" << std::endl;
     exit(0);
 } 
 
 // index variants
 using indexVariant = std::variant<
-    stpd::pa_index<RLZ_DNA_sux<>>,
-    stpd::pa_index<stpd::bitpacked_text_oracle>
+    suffixient::suffixient_array_index<stpd::tabulated_binary_search_DNA<RLZ_DNA_sux<>>,
+                                       RLZ_DNA_sux<>>,
+    suffixient::suffixient_array_index<stpd::tabulated_binary_search_DNA<stpd::bitpacked_text_oracle>,
+                                       stpd::bitpacked_text_oracle>
 >;
 
 int main(int argc, char* argv[])
 {
-    if(argc < 3)
+    if(argc < 2)
     {
         std::cerr << "Wrong number of parameters... See the help messagge:" << std::endl;
         help();
@@ -35,13 +37,12 @@ int main(int argc, char* argv[])
     }
 
     std::string input_path, pattern_file;
-    uint64_t maxOcc = (1ULL << 63) | ((1ULL << 63) - 1);
-    bool benchmark = false, run_benchmark = false;
+    bool check_correctness = false, run_benchmark = false;
 
     indexVariant index;
 
     int opt;
-    while ((opt = getopt(argc, argv, "hi:p:t:b")) != -1)
+    while ((opt = getopt(argc, argv, "hi:p:t:e:cb")) != -1)
     {
         switch (opt){
             case 'h':
@@ -53,8 +54,8 @@ int main(int argc, char* argv[])
             case 'p':
                 pattern_file = std::string(optarg);
             break;
-            case 't':
-                maxOcc = std::stoull(optarg);
+            case 'c':
+                check_correctness = true;
             break;
             case 'b':
                 run_benchmark = true;
@@ -78,51 +79,44 @@ int main(int argc, char* argv[])
         std::ifstream in(input_path + ".param");
         in >> oracleVariant;
         in.close();
+        std::cout << oracleVariant << std::endl;
 
         // set the index variant
-        if(oracleVariant      == "RLZ")      { index.emplace<0>(); }
-        else if(oracleVariant == "bitpacked"){ index.emplace<1>(); }
-        else                                 { help(); }   
+        if(oracleVariant      == "RLZ")       { index.emplace<0>(); }
+        else if(oracleVariant == "bitpacked") { index.emplace<1>(); }
+        else                                  { help(); }
     }
 
-    // Load PA-index from file
+    // Load suffixient-array index from file
     std::visit([&](auto& idx) {
         // load the index
-        idx.load(input_path); }, index);
+        idx.load(input_path);
+    }, index);
 
     // Run locate queries benchmark
     if( run_benchmark )
     {
-        if(maxOcc == 1) {
-            std::cout << "### Running locate primary occurrence queries benchmark for "
-                      << pattern_file << " using the index in "
-                      << input_path << std::endl;
+        std::cout << "### Running locate primary occurrence queries benchmark for "
+                  << pattern_file << " using the index in "
+                  << input_path << std::endl;   
 
-            std::visit([&](auto& idx) {
-                    idx.locate_primary_benchmark(pattern_file); 
-            }, index);
-        }
-        else {
-            std::cout << "### Running locate all occurrence queries benchmark for "
-                      << pattern_file << " using the index in "
-                      << input_path << std::endl;
-
-            std::visit([&](auto& idx) {
-                    idx.locate_secondary_benchmark(pattern_file, maxOcc); 
-            }, index);
-        }
+        std::visit([&](auto& idx) {
+                idx.locate_primary_benchmark(pattern_file); 
+        }, index); 
 
         return 0;
     }
+    /*
+    std::cout << "### Running locate queries for " << pattern_file 
+              << " using the index in " << input_path << std::endl;
 
-    std::cout << "### Running locate all occurrence queries for "
-              << pattern_file << " using the index in "
-              << input_path << std::endl;
-
-    // Run locate queries
     std::visit([&](auto& idx) {
-            idx.locate_fasta(pattern_file, maxOcc); 
+        if( max_occ_thr == 1 )
+            idx.locate_one_fasta(pattern_file, check_correctness); 
+        else
+            idx.locate_all_fasta(pattern_file, max_occ_thr, exp_search_base, check_correctness); 
     }, index);
+    */
 
     return 0;
 }

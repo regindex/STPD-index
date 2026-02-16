@@ -115,16 +115,50 @@ message(STATUS "Configuring competitor software included in the benchmarks...")
 ######### PT-index #########
 
   add_executable(pt_build
-    prefix-tree/build_store_pt_index.cpp
+    prefix-tree-index/build_pt_index.cpp
   )
 
   target_link_libraries(pt_build PUBLIC malloc_count text_oracle)
 
   add_executable(pt_locate
-    prefix-tree/locate.cpp
+    prefix-tree-index/locate.cpp
   )
 
   target_link_libraries(pt_locate PUBLIC malloc_count text_oracle)
+
+######### Suffixient-array #########
+
+  add_executable(build_suffixient
+    suffixient-array/compute_suffixient_set.cpp
+  )
+
+  target_link_libraries(build_suffixient PRIVATE stpd)
+
+  add_executable(sA-build
+    suffixient-array/build_sA-index.cpp
+  )
+
+  target_link_libraries(sA-build PRIVATE stpd)
+
+  add_executable(sA_locate
+    suffixient-array/locate.cpp
+  )
+
+  target_link_libraries(sA_locate PRIVATE stpd)
+
+######### script to build the indexes variants #########
+
+  #add_executable(benchmark_build
+  #  build_index_variants.cpp
+  #)
+
+  #target_link_libraries(benchmark_build PRIVATE stpd)
+
+  add_executable(sampling_build
+    ${CMAKE_SOURCE_DIR}/CLI/path-decomp-src/STPD_small_files.cpp
+  )
+
+  target_link_libraries(sampling_build PRIVATE stpd)
 
 ######### benchmark script #########
 

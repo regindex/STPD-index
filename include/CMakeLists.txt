@@ -36,7 +36,7 @@
 
   add_library(phi OBJECT
     phi_function/r-index_phi_inv_sux.hpp
-    phi_function/r-index_phi_inv_intlv.hpp
+    phi_function/r-index_phi_inv.hpp
   )
   target_include_directories(phi PUBLIC phi_function)
   target_link_libraries(phi PUBLIC bitvector elias_fano)

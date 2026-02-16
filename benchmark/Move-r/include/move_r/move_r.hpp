@@ -145,11 +145,15 @@ public:
         support == _locate_bi_bwd;
         
     static constexpr bool supports_locate = support != _count && support != _count_bi; // true <=> the index supports locate
+    //static constexpr bool supports_locate = true; // true <=> the index supports locate
     static constexpr bool supports_multiple_locate = supports_locate && support != _locate_one; // true <=> the index supports locating multiple occurrences
-    static constexpr bool supports_bwsearch = support != _locate_rlzsa_bin_search;
+    //static constexpr bool supports_multiple_locate = true;
+    //static constexpr bool supports_bwsearch = support != _locate_rlzsa_bin_search;
+    static constexpr bool supports_bwsearch = true;
     static constexpr bool has_rlzsa = support == _locate_rlzsa || support == _locate_rlzsa_bi_fwd || support == _locate_rlzsa_bin_search;
     static constexpr bool has_lzendsa = support == _locate_lzendsa || support == _locate_lzendsa_bi_fwd;
     static constexpr bool has_locate_move = support == _locate_move || support == _locate_move_bi_fwd;
+    //static constexpr bool has_locate_move = true;
     static constexpr bool str_input = std::is_same_v<sym_t, char>; // true <=> the input is a string
     static constexpr bool int_input = !str_input; // true <=> the input is an iteger vector
     static constexpr bool byte_alphabet = sizeof(sym_t) == 1; // true <=> the input uses a byte alphabet
@@ -1158,6 +1162,13 @@ public:
      */
     inline pos_t count(const inp_t& P) const;
 
+    inline std::tuple<pos_t,pos_t,pos_t,int64_t> count_and_get_range(const inp_t& P) const;
+
+    inline std::pair<std::pair<pos_t,pos_t>,int64_t> count_and_get_occ(const inp_t& P) const;
+
+    inline pos_t primary_occ(pos_t hat_b_ap_y, int64_t y) const
+        requires(supports_locate);
+
     /**
      * @brief locates the pattern P in the input
      * @param P the pattern to locate in the input
@@ -1168,6 +1179,10 @@ public:
 
     inline std::tuple<std::vector<pos_t>,double,double> locate_and_time(const inp_t& P) const
         requires(supports_multiple_locate);
+
+    //inline std::vector<pos_t> locate_in_range(pos_t b, pos_t e, pos_t s, pos_t s_, uint64_t T) const
+    inline std::vector<pos_t> 
+    locate_secondary_occs(std::tuple<pos_t,pos_t,pos_t,int64_t> range, uint64_t thr) const;
 
     // ############################# RETRIEVE-RANGE METHODS #############################
 

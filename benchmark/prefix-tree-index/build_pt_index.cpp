@@ -14,7 +14,7 @@ void help(){
     "-i <arg>    Input text file path. (REQUIRED)" << std::endl <<
     "-a <arg>    Prefix array file path (5 bytes per entry). (REQUIRED)" << std::endl <<
     "-s <arg>    LCS-array file path (5 bytes per entry). (REQUIRED)" << std::endl <<
-    "-t <arg>    Text oracle variant: (RLZ|plain).         (Def. RLZ)" << std::endl <<
+    "-t <arg>    Text oracle variant: (RLZ|bitpacked).         (Def. RLZ)" << std::endl <<
     "-l <arg>    RLZ reference sequence length (if known). (Def. None)" << std::endl <<
     "-o <arg>    Output index file path. (REQUIRED)" << std::endl;
     exit(0);
@@ -75,14 +75,14 @@ int main(int argc, char* argv[])
     if(inputPath == "" or paPath == "" or outputPath == ""){ help(); }
 
     // set the index variant
-    if(oracleVariant      == "RLZ")  { index.emplace<0>(); }
-    else if(oracleVariant == "plain"){ index.emplace<1>(); }
-    else                             { help(); }    
+    if(oracleVariant      == "RLZ")      { index.emplace<0>(); }
+    else if(oracleVariant == "bitpacked"){ index.emplace<1>(); }
+    else                                 { help(); }    
 
     std::cout << "\n[INFO] Constructing and storing the Prefix tree index" 
               << " for " << inputPath << "\n" << std::endl;
 
-    { // select the correct index variant
+    {   // select the correct index variant
         std::visit([&](auto& idx) {
             // compute the index
             idx.build(inputPath,paPath,lcsPath,refLen);
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
             idx.store(outputPath); }, index);
     }
 
-    { // write index parameters
+    {   // write index parameters
         std::ofstream out(outputPath + ".PT_param");
         out << oracleVariant << "\n" << refLen << "\n" << inputPath << "\n" << outputPath;
         out.close();

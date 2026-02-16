@@ -203,7 +203,6 @@ template <move_r_support support, typename sym_t, typename pos_t>
 std::vector<pos_t> move_r<support, sym_t, pos_t>::query_context::locate()
     requires(supports_multiple_locate)
 {
-    std::cout << "22222222222" << std::endl;
     std::vector<pos_t> Occ;
 
     if constexpr (has_lzendsa) {
@@ -682,6 +681,51 @@ pos_t move_r<support, sym_t, pos_t>::count(const inp_t& P) const
 }
 
 template <move_r_support support, typename sym_t, typename pos_t>
+std::tuple<pos_t,pos_t,pos_t,int64_t> 
+move_r<support, sym_t, pos_t>::count_and_get_range(const inp_t& P) const
+{
+    pos_t b, e, b_, e_, hat_b_ap_y, hat_e_ap_z;
+    int64_t y, z;
+
+    init_backward_search(b, e, b_, e_, hat_b_ap_y, y, hat_e_ap_z, z);
+
+    for (int64_t i = P.size() - 1; i >= 0; i--) {
+        if (!backward_search_step(P[i], b, e, b_, e_, hat_b_ap_y, y, hat_e_ap_z, z)) {
+            return std::make_tuple(1,0,0,0);
+        }
+    }
+
+    return std::make_tuple(b,e,hat_b_ap_y,y);
+}
+
+template <move_r_support support, typename sym_t, typename pos_t>
+std::pair<std::pair<pos_t,pos_t>,int64_t>
+move_r<support, sym_t, pos_t>::count_and_get_occ(const inp_t& P) const
+{
+    pos_t b, e, b_, e_, hat_b_ap_y, hat_e_ap_z;
+    int64_t y, z;
+
+    init_backward_search(b, e, b_, e_, hat_b_ap_y, y, hat_e_ap_z, z);
+
+    for (int64_t i = P.size() - 1; i >= 0; i--) {
+        if (!backward_search_step(P[i], b, e, b_, e_, hat_b_ap_y, y, hat_e_ap_z, z)) {
+            return std::make_pair(std::make_pair(1,0),-1);
+        }
+    }
+
+    return std::make_pair(std::make_pair(b,e),
+                          SA_s(hat_b_ap_y) - (y + 1));
+}
+
+template <move_r_support support, typename sym_t, typename pos_t>
+pos_t
+move_r<support, sym_t, pos_t>::primary_occ(pos_t hat_b_ap_y, int64_t y) const
+    requires(supports_locate)
+{
+    return SA_s(hat_b_ap_y) - (y + 1);
+}
+
+template <move_r_support support, typename sym_t, typename pos_t>
 std::vector<pos_t> move_r<support, sym_t, pos_t>::locate(const inp_t& P, uint64_t T) const
     requires(supports_multiple_locate)
 {
@@ -754,6 +798,42 @@ std::vector<pos_t> move_r<support, sym_t, pos_t>::locate(const inp_t& P, uint64_
             pos_t i = b + 1;
 
             while (i <= e) {
+                M_Phi_m1().move(s, s_);
+                Occ.emplace_back(s);
+                i++;
+            }
+        }
+    }
+
+    return Occ;
+}
+
+template <move_r_support support, typename sym_t, typename pos_t>
+std::vector<pos_t>
+move_r<support, sym_t, pos_t>::locate_secondary_occs(
+                               std::tuple<pos_t,pos_t,pos_t,int64_t> range,
+                                                            uint64_t thr) const
+{
+    std::vector<pos_t> Occ { };
+
+    if constexpr (has_locate_move)
+    {
+        pos_t b = std::get<0>(range), e = std::get<1>(range);
+
+        if (b < e) // 3 4
+        {
+            Occ.reserve(e - b);
+
+            pos_t hat_b_ap_y = std::get<2>(range);
+            int64_t y = std::get<3>(range);
+
+            pos_t s, s_;
+            init_phi_m1(b, e, s, s_, hat_b_ap_y, y);
+
+            pos_t i = b + 1;
+
+            while (thr-- > 0 and i <= e)
+            {
                 M_Phi_m1().move(s, s_);
                 Occ.emplace_back(s);
                 i++;

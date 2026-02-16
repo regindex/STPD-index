@@ -240,22 +240,23 @@ public:
 	std::vector<uint_t>
 		get_SA_range_thr(Node* b, Node* e, usafe_t thr) const
 	{
-		std::vector<uint_t> res;
+		std::vector<uint_t> res { };
 
 		Node* curr = b;
-		uint_t p = curr->depth - 1;
-		uint_t p_e = e->depth - 1;
-		res.push_back(p);
+		res.push_back(curr->depth - 1);
 
-		while(--thr > 0 and p != p_e)
+		while(--thr > 0 and curr != e)
 		{
 			curr = curr->next_leaf;
-			p = curr->depth - 1;
-
-			res.push_back(p);
+			res.push_back(curr->depth - 1);
 		}
 
 		return res;
+	}
+
+	uint_t operator[](Node* i) const
+	{
+		return i->depth - 1;
 	}
 
 	void print_tree(Node* node, int level = 0) const

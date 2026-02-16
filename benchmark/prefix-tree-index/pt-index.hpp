@@ -6,39 +6,42 @@
  *  pa-index: implementation of the Prefix Array index
  */
 
-#ifndef PA_INDEX_HPP_
-#define PA_INDEX_HPP_
+#ifndef PT_INDEX_HPP_
+#define PT_INDEX_HPP_
 
 #include <chrono>
 #include <malloc_count.h> 
 
+#include <common.hpp> 
 #include <RLZ/RLZ_DNA_sux.hpp> 
-#include <bitpacked_text_oracle.hpp>
+#include <bitpacked_text_oracle.hpp>  
 
-#include "prefix_array_binary_search.hpp" 
+#include "prefix_tree.hpp"
 
 namespace stpd{
 
 template<class textOracle>
-class pa_index{
+class pt_index{
 
 private:
 
-	textOracle O; 							  // random access text oracle
-	prefix_array_binary_search<textOracle> S; // pa array binary search
+	textOracle O; 			  // random access text oracle
+	PrefixTree<textOracle> S; // prefix tree data structure
 
 public:
 	
-	pa_index(){} // empty constructor
+	pt_index(){} // empty constructor
 
 	// standard index constructor
-	void build(const std::string &text_filepath, const std::string &pa_filepath, size_t reference_length)
+	void build(const std::string &text_filepath, const std::string &pa_filepath,
+	        									 const std::string &lcs_filepath,
+	        									            size_t reference_length)
 	{
-		std::cout << "[INFO] Constructing the PA index using the prefix array in " << pa_filepath << "\n" << std::endl;
+		std::cout << "[INFO] Constructing the PT index using the prefix array in " << pa_filepath << "\n" << std::endl;
 		std::cout << "[STEP 1] Constructing the random-access text oracle..." << std::endl;
 		O.build(text_filepath,reference_length);
-		std::cout << "[STEP 2] Constructing the PA binary search data structure..." << std::endl;
-		S.build(text_filepath,pa_filepath,&O,false); 
+		std::cout << "[STEP 2] Constructing the Prefix tree data structure..." << std::endl;
+		S.build(&O,pa_filepath,lcs_filepath,false); 
 	  	
 	  	std::cout << "[DONE] Index successfully built!" << "\n" << std::endl;
 	}
@@ -51,7 +54,7 @@ public:
 		usafe_t O_bytes = O.serialize(out);
 		std::cout << "		- Random-access data structure size = " << O_bytes << " bytes" << std::endl;
 		usafe_t S_bytes = S.serialize(out);
-		std::cout << "		- PA binary search data structure size = " << S_bytes << " bytes" << std::endl;
+		std::cout << "		- Prefix tree data structure size = " << S_bytes << " bytes" << std::endl;
 
 		std::cout << "[DONE] Index successfully stored!" << std::endl;
 		std::cout << "		→ Total index size in disk = " << O_bytes + S_bytes << " bytes" << "\n" << std::endl;
@@ -68,50 +71,58 @@ public:
 
 		std::cout << "		- Random-access text oracle..." << std::endl;
 		O.load(in);
-		std::cout << "		- STPD-array data structure..." << std::endl;
+		std::cout << "		- Prefix tree data structure..." << std::endl;
 		S.load(in,&(this->O));
 
 		std::cout << "[DONE] Index successfully loaded!" << "\n" << std::endl;
 
 		in.close();
 	}
-	
-	safe_t
-	compute_primary_occ(const std::string& pattern) const
-	{
-		auto b = S.range_lower_boundary_lcs(pattern);
-		safe_t occ = b.second < pattern.size() ? -1 : b.first;
 
-		return occ;
-	}
-	
-	inline std::pair< std::pair<usafe_t,usafe_t> ,safe_t >
-	compute_range_and_occ(const std::string& pattern) const
+	std::pair< std::pair<Node*,Node*>, safe_t >
+	compute_range_and_occ(const std::string pattern)
 	{
-		safe_t  b  = S.range_lower_boundary(pattern);
-		usafe_t e  = S.range_upper_boundary(pattern);
-		safe_t occ = e > b ? S[b] : -1;
+		Node* l = S.locate_locus(pattern);
 
-		return std::make_pair( std::make_pair(b,e), occ );
+		if( l == nullptr )
+			return std::make_pair( std::make_pair(nullptr,nullptr), -1 );
+
+		Node* b = S.locate_smallest_leaf(l);
+		Node* e = S.locate_largest_leaf(l);
+
+		return std::make_pair( std::make_pair(b,e), S[b] );
 	}
 
-	inline std::vector<uint_t>
-	enumerate_secondary_occs(const std::pair<usafe_t,usafe_t> range,
-						   	 const	                  usafe_t thr) const
+	std::vector<uint_t>
+	enumerate_secondary_occs(std::pair<Node*,Node*> range, usafe_t thr)
 	{
-		return S.get_SA_range_thr(range.first + 1, range.second, thr);
+		std::vector<uint_t> res {};
+		
+		Node* b = range.first;
+		Node* e = range.second;
+
+		if( b != e )
+		{
+			b = b->next_leaf;
+			res = S.get_SA_range_thr(b,e,thr);
+		}
+
+		return res;
 	}
 	
-	std::vector<uint_t> locate_pattern(const std::string pattern,
-											 usafe_t     thr) const
+	std::vector<uint_t>
+		locate_pattern(const std::string pattern, usafe_t thr) const
 	{
-		usafe_t b = S.range_lower_boundary(pattern);
-		usafe_t e = S.range_upper_boundary(pattern);
+		Node* l = S.locate_locus(pattern);
+
+		Node* b = S.locate_smallest_leaf(l);
+		Node* e = S.locate_largest_leaf(l);
 
 		std::vector<uint_t> res = S.get_SA_range_thr(b,e,thr);
 		
 		return res;
 	}
+	
 
 	// run locate all occurrence queries on all patterns in a fasta file
 	/*
@@ -131,19 +142,18 @@ public:
 		auto start = std::chrono::high_resolution_clock::now();
 
 		std::ifstream patterns(patternFile);
-		std::ofstream   output(patternFile+".PAoccs");
+		std::ofstream   output(patternFile+".PToccs");
 
 		std::string line, header;
 		usafe_t i=0, tot_char=0;
 		std::vector<uint_t> res;
-		double tot_duration = 0;
 
 		uint_t tot_occs = 0;
 		while(std::getline(patterns, line))
 		{
 			if(i%2 != 0)
 			{
-				res = locate_pattern(line,thr);
+				res = locate_pattern(line, thr);
 
 				output << header << std::endl;
 				if(res.size() >= 0)
@@ -185,15 +195,16 @@ public:
 		- patternFile: FASTA file path containing the patterns
 		Output: some statistics printed to the standard output
 	*/
-	void locate_primary_benchmark(const std::string patternFile) 
+	void locate_fasta_benchmark(const std::string patternFile, usafe_t thr) 
 	{
-	    // --- RESET MEMORY COUNTER ---
 	    // compute index size + basic program overhead.
 	    size_t index_memory_bytes = malloc_count_current();
 
 	    // --- PHASE 1: LOAD DATA ---
-	    std::ifstream patterns(patternFile);
-	    std::ofstream logfile(patternFile + ".PA_locate_log");
+		// read patterns into memory first to avoid disk I/O latency.
+		std::ifstream patterns(patternFile);
+		std::ofstream   output(patternFile+".PToccs");
+		std::ofstream  logfile(patternFile+".PT_locate_log");
 
 	    struct QueryData {
 	        std::string header;
@@ -201,10 +212,13 @@ public:
 	    };
 	    std::vector<QueryData> queries;
 
-	    std::string line, header;
-	    usafe_t i = 0, tot_char = 0;
+	    using Step1ReturnType = decltype(compute_range_and_occ(""));
+	    std::vector<Step1ReturnType> step1_results;
 
-	    while(std::getline(patterns, line))
+	    std::string line, header;
+	    uint64_t i = 0, tot_char = 0;
+
+	    while(std::getline(patterns, line)) 
 	    {
 	        if(i % 2 != 0) {
 	            queries.push_back({header, line});
@@ -216,108 +230,70 @@ public:
 	    }
 	    patterns.close();
 
-	    usafe_t tot_pattern = queries.size();
-	    double  tot_primary_duration = 0;
-	    usafe_t tot_primary_found = 0;
+		// reserve space to prevent reallocation during timing
+	    step1_results.reserve(queries.size());
 
-		// --- PHASE 2: (Primary occurrences) ---
+	    uint64_t tot_pattern = queries.size();
+	    uint64_t tot_soccs = 0;
+	    double tot_primary_duration = 0;
+	    double tot_secondary_duration = 0;
+
+	    // --- PHASE 2: RUN STEP 1 (Primary occurrences) ---
 	    for(const auto& q : queries)
 	    {
 	        auto start = std::chrono::high_resolution_clock::now();
-	        safe_t pocc = compute_primary_occ(q.pattern);
+			auto res = compute_range_and_occ(q.pattern);
 	        std::chrono::duration<double> duration = 
 	                std::chrono::high_resolution_clock::now() - start;
 
 	        tot_primary_duration += duration.count();
-	        tot_primary_found += (pocc == -1 ? 0 : 1);
+	        step1_results.push_back(res);
 	    }
 
-		// --- PHASE 4: LOG DATA ---
-	    std::cout << "No. primary occs found = "    << tot_primary_found                    << "\n"
-	              << "No. processed patterns = "    << tot_pattern                          << "\n"
-	              << "No. processed characters = "  << tot_char                             << "\n" 
-	              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
-	              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
-	              << "Time to process one character (ns) = "      << 
-	              						    (tot_primary_duration/tot_char) * 1000000000    << "\n"
-	              << "Time per primary occurrence (ns) = "        << 
-	                                        (tot_primary_duration/tot_pattern) * 1000000000 << std::endl;
-
-	    logfile   << "No. primary occs found = "    << tot_primary_found                    << "\n"
-	              << "No. processed patterns = "    << tot_pattern                          << "\n"
-	              << "No. processed characters = "  << tot_char                             << "\n" 
-	              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
-	              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
-	              << "Time to process one character (ns) = "      << 
-	              						    (tot_primary_duration/tot_char) * 1000000000    << "\n"
-	              << "Time per primary occurrence (ns) = "        << 
-	                                        (tot_primary_duration/tot_pattern) * 1000000000 << std::endl;
-
-
-	    logfile.close();
-	}
-
-	void locate_secondary_benchmark(const std::string patternFile, usafe_t thr) 
-	{
 	    // --- RESET MEMORY COUNTER ---
-	    // compute index size + basic program overhead.
-	    size_t index_memory_bytes = malloc_count_current();
-
-	    // --- PHASE 1: LOAD DATA ---
-	    std::ifstream patterns(patternFile);
-	    std::ofstream logfile(patternFile + ".PA_locate_log");
-
-	    struct QueryData {
-	        std::string header;
-	        std::string pattern;
-	    };
-	    std::vector<QueryData> queries;
-
-	    std::string line, header_buffer;
-	    usafe_t i = 0, tot_char = 0;
-
-	    while(std::getline(patterns, line))
-	    {
-	        if(i % 2 != 0) {
-	            queries.push_back({header_buffer, line});
-	            tot_char += line.size();
-	        } else {
-	            header_buffer = line;
-	        }
-	        i++;
-	    }
-	    patterns.close();
-
+	    size_t memory_after_step_1 = malloc_count_current();
 	    malloc_count_reset_peak();
 
-	    usafe_t tot_pattern = queries.size();
-	    usafe_t tot_soccs = 0;
-	    double tot_secondary_duration = 0;
-
-		// --- PHASE 2: RUN QUERIES (Secondary occurrences) ---
-	    for(const auto& q : queries)
+	    // --- PHASE 3: RUN STEP 2 (Secondary occurrences) ---
+	    // Step 2 enumerates the secondary occurences.
+	    for(size_t k = 0; k < queries.size(); ++k)
 	    {
+	        auto& res = step1_results[k]; 
+	        int64_t pocc = res.second;
+
 	        auto start = std::chrono::high_resolution_clock::now();
-	        auto range = compute_range_and_occ(q.pattern);
-
-	        std::vector<uint_t> soccs{};
-	        if(range.second != -1)
-	        	soccs = enumerate_secondary_occs(range.first, thr - 1);
-
+	        auto soccs = enumerate_secondary_occs(res.first, thr - 1);
 	        std::chrono::duration<double> duration = 
 	                std::chrono::high_resolution_clock::now() - start;
 
 	        tot_secondary_duration += duration.count();
-	        tot_soccs += soccs.size() + (range.second == -1 ? 0 : 1);
+	        tot_soccs += soccs.size();
+
+	        // write output outside the timer
+	        output << queries[k].header << std::endl;
+	        if( pocc != -1 )
+	        {   
+	            output << pocc << " ";
+	            for(auto& occ : soccs)
+	                output << occ << " ";
+	            output << std::endl;
+	        }
+	        else { output << std::endl; }
 	    }
 
+	    output.close();
+
 		// --- PHASE 4: LOG DATA ---
-	    std::cout << "No. occurences found = "      << tot_soccs                            << "\n"
+	    std::cout << "No. occurences found = "      << tot_soccs + tot_pattern              << "\n"
 	              << "No. processed patterns = "    << tot_pattern                          << "\n"
 	              << "No. processed characters = "  << tot_char                             << "\n" 
 	              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
-	              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak()    << "\n"
+	              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() -
+	              							  (memory_after_step_1 - index_memory_bytes)    << "\n"
+	              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
 	              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+	              << "Time per primary occurrence (ns) = "        << 
+	                                         (tot_primary_duration/tot_pattern) * 1000000000 << "\n"
 	              << "Time per secondary occurrence (ns) = "      << 
 	                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
 
@@ -325,8 +301,12 @@ public:
 	              << "No. processed patterns = "    << tot_pattern                          << "\n"
 	              << "No. processed characters = "  << tot_char                             << "\n" 
 	              << "Index size (bytes) = "        << index_memory_bytes                   << "\n"
-	              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak()    << "\n"
+	              << "Memory peak secondary occ.s (bytes) = "     << malloc_count_peak() -
+	              							  (memory_after_step_1 - index_memory_bytes)    << "\n"
+	              << "Time to find the primary occ. (sec) = "     << tot_primary_duration   << "\n"
 	              << "Time to find the secondary occ.s (sec) = "  << tot_secondary_duration << "\n"
+	              << "Time per primary occurrence (ns) = "        << 
+	                                         (tot_primary_duration/tot_pattern) * 1000000000 << "\n"
 	              << "Time per secondary occurrence (ns) = "      << 
 	                                         (tot_secondary_duration/tot_soccs) * 1000000000 << std::endl;
 
@@ -334,7 +314,7 @@ public:
 	}
 
 private:
-
+	
 	bool check_occs_correctness(const std::vector<uint_t>& occs, const std::string& patt) const
 	{	
 		if(occs.size() == 0)
@@ -355,7 +335,8 @@ private:
 		return true;
 	}
 
-}; // pa_index
+
+}; // pt_index
 }  // stpd
 
 #endif
