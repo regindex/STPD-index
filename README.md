@@ -9,7 +9,13 @@ git clone https://github.com/regindex/STPD-index
 cd STPD-index
 mkdir build
 cd build
-cmake ..
+cmake .. 
+make
+~~~~
+
+If you want to compile the competing software used in the benchmarks, please use
+~~~~
+cmake -DSTPD_BUILD_BENCH_CLI=ON ..
 make
 ~~~~
 

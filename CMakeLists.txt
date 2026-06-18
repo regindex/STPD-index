@@ -49,7 +49,7 @@
 ### CMake options ###
 
   option(STPD_BUILD_CLI "Build Command Line Interface (CLI) executables" ON)
-  option(STPD_BUILD_BENCH_CLI "Build Benchmark Executables" ON)
+  option(STPD_BUILD_BENCH_CLI "Build Benchmark Executables" OFF)
 
 ### Configure external dependencies ###
 
